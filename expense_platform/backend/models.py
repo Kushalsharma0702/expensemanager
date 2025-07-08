@@ -11,27 +11,26 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.Text, nullable=False)
     role = db.Column(db.Enum('superadmin', 'admin', 'employee', name='user_roles'), nullable=False)
-    
-    # Relationships
-    budgets = db.relationship('Budget', backref='admin', lazy=True)
-    expenses = db.relationship('Expense', backref='employee', lazy=True)
-    sent_transactions = db.relationship('Transaction', foreign_keys='Transaction.sender_id', backref='sender', lazy=True)
-    received_transactions = db.relationship('Transaction', foreign_keys='Transaction.receiver_id', backref='receiver', lazy=True)
 
 class Budget(db.Model):
     __tablename__ = 'budgets'
     
     id = db.Column(db.Integer, primary_key=True)
     admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    allocated = db.Column(db.Numeric(10, 2), nullable=False)
-    spent = db.Column(db.Numeric(10, 2), default=0)
-    remaining = db.Column(db.Numeric(10, 2), nullable=False)
+    allocated = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+    spent = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+    remaining = db.Column(db.Numeric(10, 2), nullable=False, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    admin = db.relationship('User', backref='budget')
     
     def __init__(self, admin_id, allocated):
         self.admin_id = admin_id
         self.allocated = allocated
-        self.spent = 0
         self.remaining = allocated
+        self.spent = 0
 
 class Expense(db.Model):
     __tablename__ = 'expenses'
@@ -41,10 +40,14 @@ class Expense(db.Model):
     admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     reason = db.Column(db.Text, nullable=False)
-    status = db.Column(db.Enum('pending', 'approved', 'rejected', name='expense_status'), default='pending')
+    status = db.Column(db.Enum('pending', 'approved', 'rejected', name='expense_status'), 
+                      nullable=False, default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    admin = db.relationship('User', foreign_keys=[admin_id], backref='admin_expenses')
+    # Relationships
+    employee = db.relationship('User', foreign_keys=[employee_id], backref='expenses')
+    admin = db.relationship('User', foreign_keys=[admin_id], backref='managed_expenses')
 
 class Transaction(db.Model):
     __tablename__ = 'transactions'
@@ -55,3 +58,7 @@ class Transaction(db.Model):
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     type = db.Column(db.Enum('allocation', 'expense', name='transaction_types'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_transactions')
+    receiver = db.relationship('User', foreign_keys=[receiver_id], backref='received_transactions')

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 from models import User
@@ -12,28 +12,27 @@ def login():
     password = data.get('password')
     
     if not email or not password:
-        return jsonify({'message': 'Email and password required'}), 400
+        return jsonify({'error': 'Missing email or password'}), 400
     
     user = User.query.filter_by(email=email).first()
     
     if user and check_password_hash(user.password, password):
         login_user(user)
-        redirect_url = f'/dashboard/{user.role}'
         return jsonify({
             'message': 'Login successful',
-            'redirect': redirect_url,
-            'role': user.role
-        }), 200
-    
-    return jsonify({'message': 'Invalid credentials'}), 401
+            'role': user.role,
+            'redirect_url': f'/dashboard/{user.role}'
+        })
+    else:
+        return jsonify({'error': 'Invalid email or password'}), 401
 
 @auth_bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
     logout_user()
-    return jsonify({'message': 'Logged out successfully'}), 200
+    return jsonify({'message': 'Logged out successfully'})
 
-@auth_bp.route('/me', methods=['GET'])
+@auth_bp.route('/me')
 @login_required
 def get_current_user():
     return jsonify({
@@ -41,4 +40,4 @@ def get_current_user():
         'name': current_user.name,
         'email': current_user.email,
         'role': current_user.role
-    }), 200
+    })

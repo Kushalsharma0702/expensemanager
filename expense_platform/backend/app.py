@@ -15,7 +15,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://username:password@localhost/expense_platform')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://postgres:Kushal07@localhost:5432/expense_platform')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
@@ -32,7 +32,8 @@ app.register_blueprint(employee_bp, url_prefix='/employee')
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    # Fix the deprecation warning
+    return db.session.get(User, int(user_id))
 
 # Serve static files from frontend
 @app.route('/')
@@ -60,6 +61,7 @@ def dashboard_employee():
         return jsonify({'error': 'Unauthorized'}), 403
     return send_from_directory('../frontend', 'dashboard_employee.html')
 
+# Serve JS files
 @app.route('/js/<path:filename>')
 def serve_js(filename):
     return send_from_directory('../frontend/js', filename)
