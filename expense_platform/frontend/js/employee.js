@@ -1,10 +1,61 @@
 document.addEventListener('DOMContentLoaded', function() {
     loadUserInfo();
     loadAdmins();
+    loadStats();
     loadMyRequests();
     
-    document.getElementById('expenseForm').addEventListener('submit', handleSubmitExpense);
-    document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+    // Logout functionality
+    document.getElementById('logoutBtn').addEventListener('click', async function() {
+        try {
+            const response = await fetch('/auth/logout', {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                window.location.href = '/';
+            }
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    });
+    
+    // Expense form submission
+    document.getElementById('expenseForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const data = {
+            admin_id: parseInt(formData.get('adminSelect')),
+            amount: parseFloat(formData.get('amount')),
+            reason: formData.get('reason')
+        };
+        
+        try {
+            const response = await fetch('/employee/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+                credentials: 'include'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                showMessage('Expense submitted successfully!', 'success');
+                this.reset();
+                loadStats();
+                loadMyRequests();
+            } else {
+                showMessage(result.error || 'Failed to submit expense', 'error');
+            }
+        } catch (error) {
+            console.error('Error submitting expense:', error);
+            showMessage('Error submitting expense', 'error');
+        }
+    });
 });
 
 async function loadUserInfo() {
@@ -32,16 +83,84 @@ async function loadAdmins() {
             const data = await response.json();
             const adminSelect = document.getElementById('adminSelect');
             
+            // Clear existing options except the first one
+            adminSelect.innerHTML = '<option value="">Choose an admin...</option>';
+            
             data.admins.forEach(admin => {
                 const option = document.createElement('option');
                 option.value = admin.id;
-                option.textContent = `${admin.name} (${admin.email})`;
+                option.textContent = `${admin.name} (Budget: $${admin.available_budget.toFixed(2)})`;
                 adminSelect.appendChild(option);
             });
+        } else {
+            console.error('Failed to load admins');
+            showMessage('Failed to load admin list', 'error');
         }
     } catch (error) {
         console.error('Error loading admins:', error);
+        showMessage('Error loading admin list', 'error');
     }
+}
+
+let statusChart;
+
+async function loadStats() {
+    try {
+        const response = await fetch('/employee/stats', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const stats = await response.json();
+            updateStatsCards(stats);
+            updateStatusChart(stats);
+        } else {
+            console.error('Failed to load stats');
+        }
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+function updateStatsCards(stats) {
+    document.getElementById('totalRequests').textContent = stats.total_requests;
+    document.getElementById('approvedRequests').textContent = stats.approved_requests;
+    document.getElementById('pendingRequests').textContent = stats.pending_requests;
+    document.getElementById('rejectedRequests').textContent = stats.rejected_requests;
+}
+
+function updateStatusChart(stats) {
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    
+    if (statusChart) {
+        statusChart.destroy();
+    }
+    
+    statusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Approved', 'Pending', 'Rejected'],
+            datasets: [{
+                data: [stats.approved_requests, stats.pending_requests, stats.rejected_requests],
+                backgroundColor: [
+                    '#10B981', // Green
+                    '#F59E0B', // Yellow
+                    '#EF4444'  // Red
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
 }
 
 async function loadMyRequests() {
@@ -53,6 +172,8 @@ async function loadMyRequests() {
         if (response.ok) {
             const data = await response.json();
             updateExpensesList(data.expenses);
+        } else {
+            console.error('Failed to load requests');
         }
     } catch (error) {
         console.error('Error loading requests:', error);
@@ -60,97 +181,57 @@ async function loadMyRequests() {
 }
 
 function updateExpensesList(expenses) {
-    const expensesList = document.getElementById('expensesList');
+    const tbody = document.getElementById('expensesTableBody');
+    tbody.innerHTML = '';
     
     if (expenses.length === 0) {
-        expensesList.innerHTML = `
-            <div class="text-center py-8 text-gray-500">
-                <p>No expense requests yet</p>
-            </div>
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                    No expense requests found
+                </td>
+            </tr>
         `;
         return;
     }
     
-    expensesList.innerHTML = expenses.map(expense => {
-        const statusColor = {
-            pending: 'bg-yellow-100 text-yellow-800',
-            approved: 'bg-green-100 text-green-800',
-            rejected: 'bg-red-100 text-red-800'
-        };
+    expenses.forEach(expense => {
+        const row = document.createElement('tr');
         
-        return `
-            <div class="border border-gray-200 rounded-lg p-4">
-                <div class="flex justify-between items-start mb-3">
-                    <div>
-                        <h3 class="font-semibold text-gray-800">To: ${expense.admin_name}</h3>
-                        <p class="text-sm text-gray-600">${new Date(expense.created_at).toLocaleDateString()}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-lg font-bold text-gray-900">$${expense.amount.toLocaleString()}</p>
-                        <span class="inline-block px-2 py-1 text-xs font-semibold rounded-full ${statusColor[expense.status]}">
-                            ${expense.status.charAt(0).toUpperCase() + expense.status.slice(1)}
-                        </span>
-                    </div>
-                </div>
-                
-                <div class="mb-2">
-                    <p class="text-sm text-gray-700">${expense.reason}</p>
-                </div>
-            </div>
+        const statusBadgeClass = {
+            'pending': 'bg-yellow-100 text-yellow-800',
+            'approved': 'bg-green-100 text-green-800',
+            'rejected': 'bg-red-100 text-red-800'
+        }[expense.status] || 'bg-gray-100 text-gray-800';
+        
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${new Date(expense.created_at).toLocaleDateString()}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${expense.admin_name}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                $${expense.amount.toFixed(2)}
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                ${expense.reason}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusBadgeClass}">
+                    ${expense.status.charAt(0).toUpperCase() + expense.status.slice(1)}
+                </span>
+            </td>
         `;
-    }).join('');
-}
-
-async function handleSubmitExpense(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(e.target);
-    const data = {
-        admin_id: parseInt(formData.get('adminSelect')),
-        amount: parseFloat(formData.get('amount')),
-        reason: formData.get('reason')
-    };
-    
-    try {
-        const response = await fetch('/employee/submit', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
-            credentials: 'include'
-        });
         
-        const result = await response.json();
-        
-        if (response.ok) {
-            showMessage('Expense submitted successfully!', 'success');
-            e.target.reset();
-            loadMyRequests();
-        } else {
-            showMessage(result.error || 'Failed to submit expense', 'error');
-        }
-    } catch (error) {
-        showMessage('Error submitting expense', 'error');
-    }
-}
-
-async function handleLogout() {
-    try {
-        await fetch('/auth/logout', {
-            method: 'POST',
-            credentials: 'include'
-        });
-        window.location.href = '/';
-    } catch (error) {
-        console.error('Error logging out:', error);
-    }
+        tbody.appendChild(row);
+    });
 }
 
 function showMessage(message, type) {
     const messageDiv = document.getElementById('message');
     messageDiv.className = `fixed bottom-4 right-4 max-w-sm p-4 rounded-lg shadow-lg ${
-        type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
     }`;
     messageDiv.textContent = message;
     

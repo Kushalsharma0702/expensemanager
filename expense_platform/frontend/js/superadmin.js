@@ -4,9 +4,16 @@ document.addEventListener('DOMContentLoaded', function() {
     loadUserInfo();
     loadAdmins();
     loadBudgetOverview();
+    loadAllTransactions();
     
     document.getElementById('allocateForm').addEventListener('submit', handleAllocate);
     document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+    
+    // Refresh data every 30 seconds
+    setInterval(() => {
+        loadBudgetOverview();
+        loadAllTransactions();
+    }, 30000);
 });
 
 async function loadUserInfo() {
@@ -33,6 +40,7 @@ async function loadAdmins() {
         if (response.ok) {
             const data = await response.json();
             const adminSelect = document.getElementById('adminSelect');
+            adminSelect.innerHTML = '<option value="">Choose an admin...</option>';
             
             data.admins.forEach(admin => {
                 const option = document.createElement('option');
@@ -54,12 +62,20 @@ async function loadBudgetOverview() {
         
         if (response.ok) {
             const data = await response.json();
+            updateStatsCards(data.stats);
             updateBudgetChart(data.budgets);
             updateBudgetTable(data.budgets);
         }
     } catch (error) {
         console.error('Error loading budget overview:', error);
     }
+}
+
+function updateStatsCards(stats) {
+    document.getElementById('totalAllocated').textContent = `$${stats.total_allocated.toLocaleString()}`;
+    document.getElementById('totalSpent').textContent = `$${stats.total_spent.toLocaleString()}`;
+    document.getElementById('pendingRequests').textContent = stats.pending_requests;
+    document.getElementById('activeAdmins').textContent = stats.active_admins;
 }
 
 function updateBudgetChart(budgets) {
@@ -161,6 +177,60 @@ function updateBudgetTable(budgets) {
     });
 }
 
+async function loadAllTransactions() {
+    try {
+        const response = await fetch('/superadmin/transactions', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            updateTransactionsTable(data.transactions);
+        }
+    } catch (error) {
+        console.error('Error loading transactions:', error);
+    }
+}
+
+function updateTransactionsTable(transactions) {
+    const tbody = document.getElementById('transactionsTableBody');
+    tbody.innerHTML = '';
+    
+    transactions.forEach(transaction => {
+        const statusColor = {
+            'Completed': 'bg-green-100 text-green-800',
+            'Pending': 'bg-yellow-100 text-yellow-800',
+            'Approved': 'bg-green-100 text-green-800',
+            'Rejected': 'bg-red-100 text-red-800'
+        };
+        
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${transaction.date}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${transaction.from}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${transaction.to}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                $${transaction.amount.toLocaleString()}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${transaction.type}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <div class="max-w-xs truncate" title="${transaction.reason}">
+                    ${transaction.reason}
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
 async function handleAllocate(e) {
     e.preventDefault();
     
@@ -186,6 +256,7 @@ async function handleAllocate(e) {
             showMessage('Budget allocated successfully!', 'success');
             e.target.reset();
             loadBudgetOverview();
+            loadAllTransactions();
         } else {
             showMessage(result.error || 'Failed to allocate budget', 'error');
         }

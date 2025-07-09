@@ -1,11 +1,19 @@
-let budgetChart;
+let budgetChart, employeeChart;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadUserInfo();
-    loadBudget();
+    loadDashboard();
     loadPendingExpenses();
+    loadEmployeeStats();
     
     document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+    
+    // Refresh data every 30 seconds
+    setInterval(() => {
+        loadDashboard();
+        loadPendingExpenses();
+        loadEmployeeStats();
+    }, 30000);
 });
 
 async function loadUserInfo() {
@@ -23,20 +31,27 @@ async function loadUserInfo() {
     }
 }
 
-async function loadBudget() {
+async function loadDashboard() {
     try {
-        const response = await fetch('/admin/budget', {
+        const response = await fetch('/admin/dashboard', {
             credentials: 'include'
         });
         
         if (response.ok) {
-            const budget = await response.json();
-            updateBudgetChart(budget);
-            updateBudgetInfo(budget);
+            const data = await response.json();
+            updateBudgetStats(data.budget);
+            updateBudgetChart(data.budget);
+            document.getElementById('pendingCount').textContent = data.pending_count;
         }
     } catch (error) {
-        console.error('Error loading budget:', error);
+        console.error('Error loading dashboard:', error);
     }
+}
+
+function updateBudgetStats(budget) {
+    document.getElementById('totalBudget').textContent = `$${budget.total_budget.toLocaleString()}`;
+    document.getElementById('totalSpent').textContent = `$${budget.total_spent.toLocaleString()}`;
+    document.getElementById('remaining').textContent = `$${budget.remaining.toLocaleString()}`;
 }
 
 function updateBudgetChart(budget) {
@@ -51,7 +66,7 @@ function updateBudgetChart(budget) {
         data: {
             labels: ['Spent', 'Remaining'],
             datasets: [{
-                data: [budget.spent, budget.remaining],
+                data: [budget.total_spent, budget.remaining],
                 backgroundColor: ['#EF4444', '#22C55E'],
                 borderColor: ['#DC2626', '#16A34A'],
                 borderWidth: 2
@@ -76,30 +91,6 @@ function updateBudgetChart(budget) {
     });
 }
 
-function updateBudgetInfo(budget) {
-    const budgetInfo = document.getElementById('budgetInfo');
-    const usagePercent = budget.allocated > 0 ? (budget.spent / budget.allocated * 100).toFixed(1) : 0;
-    
-    budgetInfo.innerHTML = `
-        <div class="flex justify-between">
-            <span class="text-sm text-gray-600">Allocated:</span>
-            <span class="text-sm font-medium">$${budget.allocated.toLocaleString()}</span>
-        </div>
-        <div class="flex justify-between">
-            <span class="text-sm text-gray-600">Spent:</span>
-            <span class="text-sm font-medium text-red-600">$${budget.spent.toLocaleString()}</span>
-        </div>
-        <div class="flex justify-between">
-            <span class="text-sm text-gray-600">Remaining:</span>
-            <span class="text-sm font-medium text-green-600">$${budget.remaining.toLocaleString()}</span>
-        </div>
-        <div class="flex justify-between">
-            <span class="text-sm text-gray-600">Usage:</span>
-            <span class="text-sm font-medium">${usagePercent}%</span>
-        </div>
-    `;
-}
-
 async function loadPendingExpenses() {
     try {
         const response = await fetch('/admin/expenses', {
@@ -108,58 +99,158 @@ async function loadPendingExpenses() {
         
         if (response.ok) {
             const data = await response.json();
-            updateExpensesList(data.expenses);
+            updatePendingExpensesList(data.expenses);
         }
     } catch (error) {
         console.error('Error loading expenses:', error);
     }
 }
 
-function updateExpensesList(expenses) {
-    const expensesList = document.getElementById('expensesList');
+function updatePendingExpensesList(expenses) {
+    const tbody = document.getElementById('pendingExpensesBody');
+    tbody.innerHTML = '';
     
     if (expenses.length === 0) {
-        expensesList.innerHTML = `
-            <div class="text-center py-8 text-gray-500">
-                <p>No pending expense requests</p>
-            </div>
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                    No pending expense requests
+                </td>
+            </tr>
         `;
         return;
     }
     
-    expensesList.innerHTML = expenses.map(expense => `
-        <div class="border border-gray-200 rounded-lg p-4">
-            <div class="flex justify-between items-start mb-3">
-                <div>
-                    <h3 class="font-semibold text-gray-800">${expense.employee_name}</h3>
-                    <p class="text-sm text-gray-600">${expense.employee_email}</p>
+    expenses.forEach(expense => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                ${expense.employee_name}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                $${expense.amount.toLocaleString()}
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-900 max-w-xs">
+                <div class="truncate" title="${expense.reason}">
+                    ${expense.reason}
                 </div>
-                <div class="text-right">
-                    <p class="text-lg font-bold text-gray-900">$${expense.amount.toLocaleString()}</p>
-                    <p class="text-xs text-gray-500">${new Date(expense.created_at).toLocaleDateString()}</p>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                ${new Date(expense.created_at).toLocaleDateString()}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div class="flex space-x-2">
+                    <button 
+                        onclick="approveExpense(${expense.id})"
+                        class="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 transition-colors"
+                    >
+                        Approve
+                    </button>
+                    <button 
+                        onclick="rejectExpense(${expense.id})"
+                        class="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700 transition-colors"
+                    >
+                        Reject
+                    </button>
                 </div>
-            </div>
-            
-            <div class="mb-4">
-                <p class="text-sm text-gray-700">${expense.reason}</p>
-            </div>
-            
-            <div class="flex gap-2">
-                <button 
-                    onclick="approveExpense(${expense.id})"
-                    class="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                    Approve
-                </button>
-                <button 
-                    onclick="rejectExpense(${expense.id})"
-                    class="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors"
-                >
-                    Reject
-                </button>
-            </div>
-        </div>
-    `).join('');
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+async function loadEmployeeStats() {
+    try {
+        const response = await fetch('/admin/employee-stats', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            updateEmployeeStatsTable(data.employees);
+            updateEmployeeChart(data.employees);
+        }
+    } catch (error) {
+        console.error('Error loading employee stats:', error);
+    }
+}
+
+function updateEmployeeStatsTable(employees) {
+    const tbody = document.getElementById('employeeStatsBody');
+    tbody.innerHTML = '';
+    
+    employees.forEach(employee => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                ${employee.name}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                ${employee.total_requests}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                $${employee.total_amount.toLocaleString()}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                ${employee.approved}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">
+                ${employee.pending}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                ${employee.rejected}
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function updateEmployeeChart(employees) {
+    const ctx = document.getElementById('employeeChart').getContext('2d');
+    
+    if (employeeChart) {
+        employeeChart.destroy();
+    }
+    
+    const labels = employees.map(e => e.name);
+    const spendingData = employees.map(e => e.approved_amount);
+    
+    employeeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Approved Amount',
+                data: spendingData,
+                backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                borderColor: 'rgba(34, 197, 94, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString();
+                        }
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'Approved: $' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 async function approveExpense(expenseId) {
@@ -177,8 +268,9 @@ async function approveExpense(expenseId) {
         
         if (response.ok) {
             showMessage('Expense approved successfully!', 'success');
+            loadDashboard();
             loadPendingExpenses();
-            loadBudget();
+            loadEmployeeStats();
         } else {
             showMessage(result.error || 'Failed to approve expense', 'error');
         }
@@ -203,6 +295,7 @@ async function rejectExpense(expenseId) {
         if (response.ok) {
             showMessage('Expense rejected successfully!', 'success');
             loadPendingExpenses();
+            loadEmployeeStats();
         } else {
             showMessage(result.error || 'Failed to reject expense', 'error');
         }

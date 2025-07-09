@@ -25,23 +25,32 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (response.ok) {
                 showMessage('Login successful! Redirecting...', 'success');
+                
+                // Redirect based on user role
                 setTimeout(() => {
-                    window.location.href = result.redirect;
+                    window.location.href = result.redirect_url;
                 }, 1000);
             } else {
-                showMessage(result.message, 'error');
+                showMessage(result.error || 'Login failed', 'error');
             }
         } catch (error) {
-            showMessage('Login failed. Please try again.', 'error');
+            console.error('Login error:', error);
+            showMessage('An error occurred during login', 'error');
         }
     });
     
     function showMessage(message, type) {
-        messageDiv.className = `mt-4 text-center text-sm ${type === 'success' ? 'text-green-600' : 'text-red-600'}`;
-        messageDiv.textContent = message;
-        
-        setTimeout(() => {
-            messageDiv.textContent = '';
-        }, 5000);
+        if (messageDiv) {
+            messageDiv.className = `mb-4 p-4 rounded-lg ${
+                type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`;
+            messageDiv.textContent = message;
+            
+            // Clear message after 5 seconds
+            setTimeout(() => {
+                messageDiv.textContent = '';
+                messageDiv.className = '';
+            }, 5000);
+        }
     }
 });

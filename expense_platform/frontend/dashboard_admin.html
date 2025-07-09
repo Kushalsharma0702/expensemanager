@@ -23,27 +23,122 @@
     </nav>
     
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Budget Overview -->
-            <div class="lg:col-span-1">
-                <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-6">My Budget</h2>
-                    <div class="h-64">
-                        <canvas id="budgetChart"></canvas>
+        <!-- Budget Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 rounded-lg">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                        </svg>
                     </div>
-                    <div id="budgetInfo" class="mt-4 space-y-2">
-                        <!-- Budget info will be populated by JavaScript -->
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Total Budget</p>
+                        <p id="totalBudget" class="text-2xl font-semibold text-gray-900">$0</p>
                     </div>
                 </div>
             </div>
             
-            <!-- Pending Expenses -->
-            <div class="lg:col-span-2">
-                <div class="bg-white p-6 rounded-xl shadow-sm">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-6">Pending Expense Requests</h2>
-                    <div id="expensesList" class="space-y-4">
-                        <!-- Expenses will be populated by JavaScript -->
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex items-center">
+                    <div class="p-2 bg-red-100 rounded-lg">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                        </svg>
                     </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Total Spent</p>
+                        <p id="totalSpent" class="text-2xl font-semibold text-gray-900">$0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-100 rounded-lg">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Remaining</p>
+                        <p id="remaining" class="text-2xl font-semibold text-gray-900">$0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex items-center">
+                    <div class="p-2 bg-yellow-100 rounded-lg">
+                        <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Pending Requests</p>
+                        <p id="pendingCount" class="text-2xl font-semibold text-gray-900">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Budget Overview Chart -->
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6">Budget Overview</h2>
+                <div class="h-64">
+                    <canvas id="budgetChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Employee Spending Chart -->
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6">Employee Spending</h2>
+                <div class="h-64">
+                    <canvas id="employeeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Pending Expenses Table -->
+        <div class="mt-8 bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6">Pending Expense Requests</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingExpensesBody" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employee Statistics Table -->
+        <div class="mt-8 bg-white rounded-xl shadow-sm overflow-hidden">
+            <div class="p-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6">Employee Statistics</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Requests</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rejected</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeeStatsBody" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -51,6 +146,6 @@
     
     <div id="message" class="fixed bottom-4 right-4 max-w-sm"></div>
     
-    <script src="js/admin.js"></script>
+    <script src="/js/admin.js"></script>
 </body>
 </html>
