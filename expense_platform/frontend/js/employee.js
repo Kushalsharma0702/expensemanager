@@ -89,7 +89,7 @@ async function loadAdmins() {
             data.admins.forEach(admin => {
                 const option = document.createElement('option');
                 option.value = admin.id;
-                option.textContent = `${admin.name} (Budget: $${admin.available_budget.toFixed(2)})`;
+                option.textContent = `${admin.name} (Budget: ₹${admin.available_budget.toFixed(2)})`;
                 adminSelect.appendChild(option);
             });
         } else {
@@ -212,7 +212,7 @@ function updateExpensesList(expenses) {
                 ${expense.admin_name}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                $${expense.amount.toFixed(2)}
+                ₹${expense.amount.toFixed(2)}
             </td>
             <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
                 ${expense.reason}

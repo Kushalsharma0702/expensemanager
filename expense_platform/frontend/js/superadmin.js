@@ -2,17 +2,17 @@ let budgetChart;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadUserInfo();
+    loadOverview();
     loadAdmins();
-    loadBudgetOverview();
-    loadAllTransactions();
+    loadTransactions();
     
     document.getElementById('allocateForm').addEventListener('submit', handleAllocate);
     document.getElementById('logoutBtn').addEventListener('click', handleLogout);
     
     // Refresh data every 30 seconds
     setInterval(() => {
-        loadBudgetOverview();
-        loadAllTransactions();
+        loadOverview();
+        loadTransactions();
     }, 30000);
 });
 
@@ -54,7 +54,7 @@ async function loadAdmins() {
     }
 }
 
-async function loadBudgetOverview() {
+async function loadOverview() {
     try {
         const response = await fetch('/superadmin/overview', {
             credentials: 'include'
@@ -67,14 +67,29 @@ async function loadBudgetOverview() {
             updateBudgetTable(data.budgets);
         }
     } catch (error) {
-        console.error('Error loading budget overview:', error);
+        console.error('Error loading overview:', error);
+    }
+}
+
+async function loadTransactions() {
+    try {
+        const response = await fetch('/superadmin/transactions', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            updateTransactionsTable(data.transactions);
+        }
+    } catch (error) {
+        console.error('Error loading transactions:', error);
     }
 }
 
 function updateStatsCards(stats) {
-    document.getElementById('totalAllocated').textContent = `$${stats.total_allocated.toLocaleString()}`;
-    document.getElementById('totalSpent').textContent = `$${stats.total_spent.toLocaleString()}`;
-    document.getElementById('pendingRequests').textContent = stats.pending_requests;
+    document.getElementById('totalAllocated').textContent = `₹${stats.total_allocated.toFixed(2)}`;
+    document.getElementById('totalSpent').textContent = `₹${stats.total_spent.toFixed(2)}`;
+    document.getElementById('pendingRequests').textContent = stats.pending_expenses;
     document.getElementById('activeAdmins').textContent = stats.active_admins;
 }
 
@@ -126,7 +141,7 @@ function updateBudgetChart(budgets) {
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return '$' + value.toLocaleString();
+                            return '₹' + value.toLocaleString();
                         }
                     }
                 }
@@ -135,7 +150,7 @@ function updateBudgetChart(budgets) {
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            return context.dataset.label + ': $' + context.parsed.y.toLocaleString();
+                            return context.dataset.label + ': ₹' + context.parsed.y.toLocaleString();
                         }
                     }
                 }
@@ -148,28 +163,39 @@ function updateBudgetTable(budgets) {
     const tbody = document.getElementById('budgetTableBody');
     tbody.innerHTML = '';
     
+    if (budgets.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="px-6 py-4 text-center text-gray-500">
+                    No budget allocations found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
     budgets.forEach(budget => {
-        const usagePercent = budget.allocated > 0 ? (budget.spent / budget.allocated * 100).toFixed(1) : 0;
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                ${budget.admin_name}
+            <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">${budget.admin_name}</div>
+                <div class="text-sm text-gray-500">${budget.admin_email}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                $${budget.allocated.toLocaleString()}
+                ₹${budget.allocated.toFixed(2)}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                $${budget.spent.toLocaleString()}
+                ₹${budget.spent.toFixed(2)}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                $${budget.remaining.toLocaleString()}
+                ₹${budget.remaining.toFixed(2)}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <td class="px-6 py-4 whitespace-nowrap">
                 <div class="flex items-center">
                     <div class="flex-1 bg-gray-200 rounded-full h-2 mr-2">
-                        <div class="bg-blue-600 h-2 rounded-full" style="width: ${usagePercent}%"></div>
+                        <div class="bg-blue-600 h-2 rounded-full" style="width: ${budget.usage_percentage}%"></div>
                     </div>
-                    <span class="text-xs">${usagePercent}%</span>
+                    <span class="text-sm text-gray-900">${budget.usage_percentage}%</span>
                 </div>
             </td>
         `;
@@ -177,54 +203,45 @@ function updateBudgetTable(budgets) {
     });
 }
 
-async function loadAllTransactions() {
-    try {
-        const response = await fetch('/superadmin/transactions', {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            updateTransactionsTable(data.transactions);
-        }
-    } catch (error) {
-        console.error('Error loading transactions:', error);
-    }
-}
-
 function updateTransactionsTable(transactions) {
     const tbody = document.getElementById('transactionsTableBody');
     tbody.innerHTML = '';
     
+    if (transactions.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                    No transactions found
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
     transactions.forEach(transaction => {
-        const statusColor = {
-            'Completed': 'bg-green-100 text-green-800',
-            'Pending': 'bg-yellow-100 text-yellow-800',
-            'Approved': 'bg-green-100 text-green-800',
-            'Rejected': 'bg-red-100 text-red-800'
-        };
-        
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ${transaction.date}
+                ${new Date(transaction.timestamp).toLocaleDateString()}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ${transaction.from}
+                ${transaction.sender_name}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ${transaction.to}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                $${transaction.amount.toLocaleString()}
+                ${transaction.receiver_name}
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ${transaction.type}
+                ₹${transaction.amount.toFixed(2)}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                <div class="max-w-xs truncate" title="${transaction.reason}">
-                    ${transaction.reason}
-                </div>
+            <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    transaction.type === 'allocation' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                }">
+                    ${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
+                </span>
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                ${transaction.reason}
             </td>
         `;
         tbody.appendChild(row);
@@ -255,8 +272,8 @@ async function handleAllocate(e) {
         if (response.ok) {
             showMessage('Budget allocated successfully!', 'success');
             e.target.reset();
-            loadBudgetOverview();
-            loadAllTransactions();
+            loadOverview();
+            loadTransactions();
         } else {
             showMessage(result.error || 'Failed to allocate budget', 'error');
         }

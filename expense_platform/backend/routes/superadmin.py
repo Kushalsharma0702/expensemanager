@@ -81,13 +81,18 @@ def get_overview():
     total_spent = 0
     
     for budget in budgets:
+        usage_percentage = 0
+        if budget.allocated > 0:
+            usage_percentage = round((budget.spent / budget.allocated) * 100)
+            
         budget_info = {
             'id': budget.id,
             'admin_name': budget.admin_name,
             'admin_email': budget.admin_email,
             'allocated': float(budget.allocated),
             'spent': float(budget.spent),
-            'remaining': float(budget.remaining)
+            'remaining': float(budget.remaining),
+            'usage_percentage': usage_percentage
         }
         budget_data.append(budget_info)
         total_allocated += float(budget.allocated)
@@ -96,15 +101,15 @@ def get_overview():
     # Get pending requests count
     pending_count = Expense.query.filter_by(status='pending').count()
     
-    # Get active admins count
-    active_admins = User.query.filter_by(role='admin').count()
+    # Get active admins count (admins with allocated budget)
+    active_admins = Budget.query.filter(Budget.allocated > 0).count()
     
     return jsonify({
         'budgets': budget_data,
         'stats': {
             'total_allocated': total_allocated,
             'total_spent': total_spent,
-            'pending_requests': pending_count,
+            'pending_expenses': pending_count,
             'active_admins': active_admins
         }
     })
@@ -121,51 +126,26 @@ def get_all_transactions():
         Transaction.amount,
         Transaction.type,
         Transaction.timestamp,
-        User.name.label('sender_name'),
-        User.email.label('sender_email'),
-        User.role.label('sender_role')
-    ).join(User, Transaction.sender_id == User.id).order_by(Transaction.timestamp.desc()).all()
-    
-    # Get all expenses with details
-    expenses = db.session.query(
-        Expense.id,
-        Expense.amount,
-        Expense.reason,
-        Expense.status,
-        Expense.created_at,
-        User.name.label('employee_name'),
-        User.email.label('employee_email')
-    ).join(User, Expense.employee_id == User.id).order_by(Expense.created_at.desc()).all()
+        func.coalesce(User.name, 'Unknown').label('sender_name'),
+        func.coalesce(User.email, 'Unknown').label('sender_email')
+    ).outerjoin(User, Transaction.sender_id == User.id).order_by(Transaction.timestamp.desc()).limit(50).all()
     
     transaction_data = []
     
-    # Add budget allocations
+    # Process transactions
     for trans in transactions:
+        # Get receiver name
+        receiver = User.query.get(trans.id) if hasattr(trans, 'receiver_id') else None
+        receiver_name = receiver.name if receiver else 'Unknown'
+        
         transaction_data.append({
-            'id': f'T{trans.id}',
-            'date': trans.timestamp.strftime('%Y-%m-%d %H:%M'),
-            'from': trans.sender_name,
-            'to': 'Admin' if trans.type == 'allocation' else 'Employee',
+            'id': trans.id,
+            'timestamp': trans.timestamp,
+            'sender_name': trans.sender_name,
+            'receiver_name': receiver_name,
             'amount': float(trans.amount),
-            'type': trans.type.title(),
-            'reason': 'Budget Allocation' if trans.type == 'allocation' else 'Expense Payment',
-            'status': 'Completed'
+            'type': trans.type,
+            'reason': 'Budget Allocation' if trans.type == 'allocation' else 'Expense Payment'
         })
-    
-    # Add expense transactions
-    for expense in expenses:
-        transaction_data.append({
-            'id': f'E{expense.id}',
-            'date': expense.created_at.strftime('%Y-%m-%d %H:%M'),
-            'from': expense.employee_name,
-            'to': 'Admin',
-            'amount': float(expense.amount),
-            'type': 'Expense Request',
-            'reason': expense.reason,
-            'status': expense.status.title()
-        })
-    
-    # Sort by date descending
-    transaction_data.sort(key=lambda x: x['date'], reverse=True)
     
     return jsonify({'transactions': transaction_data})
