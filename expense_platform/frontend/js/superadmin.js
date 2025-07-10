@@ -1,4 +1,12 @@
-let budgetChart;
+// At the top of each dashboard JS file
+document.addEventListener('DOMContentLoaded', async function() {
+    const res = await fetch('/auth/check-session', { credentials: 'include' });
+    if (res.status !== 200) {
+        window.location.href = '/';
+        return;
+    }
+    // ...rest of your dashboard code...
+});let budgetChart;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadUserInfo();
@@ -7,7 +15,12 @@ document.addEventListener('DOMContentLoaded', function() {
     loadTransactions();
     
     document.getElementById('allocateForm').addEventListener('submit', handleAllocate);
-    document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+    // In all dashboard JS files
+document.getElementById('logoutBtn').addEventListener('click', async function() {
+    await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+    localStorage.clear();
+    window.location.href = '/';
+});
     
     // Refresh data every 30 seconds
     setInterval(() => {
@@ -281,6 +294,32 @@ async function handleAllocate(e) {
         showMessage('Error allocating budget', 'error');
     }
 }
+
+document.getElementById('addClientForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const name = document.getElementById('clientName').value.trim();
+    const email = document.getElementById('clientEmail').value.trim();
+    if (!name || !email) return showMessage('All fields required', 'error');
+    const data = { name, email, password: 'password' };
+    try {
+        const res = await fetch('/superadmin/add-client', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+            credentials: 'include'
+        });
+        const result = await res.json();
+        if (res.ok) {
+            showMessage('Client added! Default password: password', 'success');
+            this.reset();
+            loadAdmins();
+        } else {
+            showMessage(result.error || 'Failed to add client', 'error');
+        }
+    } catch {
+        showMessage('Error adding client', 'error');
+    }
+});
 
 async function handleLogout() {
     try {

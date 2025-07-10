@@ -1,9 +1,11 @@
 from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
-from models import User, Budget, Expense, Transaction
+from models import User, Budget, Expense, Transaction, EmployeeFund
 from extensions import db
-from sqlalchemy import func
-from decimal import Decimal
+from sqlalchemy import func, case
+from decimal import Decimal  # ADD THIS IMPORT
+from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash
 
 superadmin_bp = Blueprint('superadmin', __name__)
 
@@ -26,84 +28,101 @@ def allocate_budget():
     
     data = request.get_json()
     admin_id = data.get('admin_id')
-    amount = Decimal(str(data.get('amount')))
+    amount = data.get('amount')
     
     if not admin_id or not amount:
         return jsonify({'error': 'Missing required fields'}), 400
     
-    admin = User.query.filter_by(id=admin_id, role='admin').first()
-    if not admin:
-        return jsonify({'error': 'Admin not found'}), 404
-    
-    # Check if budget already exists for this admin
-    existing_budget = Budget.query.filter_by(admin_id=admin_id).first()
-    
-    if existing_budget:
-        # Add to existing budget
-        existing_budget.allocated += amount
-        existing_budget.remaining += amount
-    else:
-        # Create new budget
-        budget = Budget(admin_id=admin_id, allocated=amount)
-        db.session.add(budget)
-    
-    # Create transaction record
-    transaction = Transaction(
-        sender_id=current_user.id,
-        receiver_id=admin_id,
-        amount=amount,
-        type='allocation'
-    )
-    db.session.add(transaction)
-    
-    db.session.commit()
-    
-    return jsonify({'message': 'Budget allocated successfully'})
+    try:
+        # CRITICAL FIX: Convert to Decimal
+        amount_decimal = Decimal(str(amount))
+        
+        admin = User.query.filter_by(id=admin_id, role='admin').first()
+        if not admin:
+            return jsonify({'error': 'Admin not found'}), 404
+        
+        # Check if budget already exists for this admin
+        existing_budget = Budget.query.filter_by(admin_id=admin_id).first()
+        
+        if existing_budget:
+            # Add to existing budget
+            existing_budget.allocated += amount_decimal
+            existing_budget.remaining += amount_decimal
+        else:
+            # Create new budget - FIXED: Set remaining = allocated
+            budget = Budget(
+                admin_id=admin_id, 
+                allocated=amount_decimal,
+                spent=Decimal('0'),
+                remaining=amount_decimal
+            )
+            db.session.add(budget)
+        
+        # Create transaction record
+        transaction = Transaction(
+            sender_id=current_user.id,
+            receiver_id=admin_id,
+            amount=amount_decimal,
+            type='allocation',
+            description=f'Budget allocation to {admin.name}'
+        )
+        db.session.add(transaction)
+        
+        db.session.commit()
+        
+        return jsonify({'message': 'Budget allocated successfully'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Allocate budget error: {str(e)}")
+        return jsonify({'error': 'Failed to allocate budget'}), 500
 
 @superadmin_bp.route('/overview')
 @login_required
 def get_overview():
     if current_user.role != 'superadmin':
         return jsonify({'error': 'Unauthorized'}), 403
-    
-    # Get budget overview
-    budgets = db.session.query(
-        Budget.id,
+
+    # LEFT OUTER JOIN to include all admins, even those without budgets
+    admins = db.session.query(
+        User.id,
+        User.name,
+        User.email,
         Budget.allocated,
         Budget.spent,
-        Budget.remaining,
-        User.name.label('admin_name'),
-        User.email.label('admin_email')
-    ).join(User, Budget.admin_id == User.id).all()
-    
+        Budget.remaining
+    ).outerjoin(Budget, User.id == Budget.admin_id).filter(
+        User.role == 'admin'
+    ).all()
+
     budget_data = []
     total_allocated = 0
     total_spent = 0
-    
-    for budget in budgets:
-        usage_percentage = 0
-        if budget.allocated > 0:
-            usage_percentage = round((budget.spent / budget.allocated) * 100)
-            
+
+    for admin in admins:
+        allocated = float(admin.allocated or 0)
+        spent = float(admin.spent or 0)
+        remaining = float(admin.remaining or 0)
+        usage_percentage = round((spent / allocated) * 100) if allocated > 0 else 0
+
         budget_info = {
-            'id': budget.id,
-            'admin_name': budget.admin_name,
-            'admin_email': budget.admin_email,
-            'allocated': float(budget.allocated),
-            'spent': float(budget.spent),
-            'remaining': float(budget.remaining),
+            'id': admin.id,
+            'admin_name': admin.name,
+            'admin_email': admin.email,
+            'allocated': allocated,
+            'spent': spent,
+            'remaining': remaining,
             'usage_percentage': usage_percentage
         }
         budget_data.append(budget_info)
-        total_allocated += float(budget.allocated)
-        total_spent += float(budget.spent)
-    
+        total_allocated += allocated
+        total_spent += spent
+
     # Get pending requests count
     pending_count = Expense.query.filter_by(status='pending').count()
-    
+
     # Get active admins count (admins with allocated budget)
     active_admins = Budget.query.filter(Budget.allocated > 0).count()
-    
+
     return jsonify({
         'budgets': budget_data,
         'stats': {
@@ -125,18 +144,22 @@ def get_all_transactions():
         Transaction.id,
         Transaction.amount,
         Transaction.type,
+        Transaction.description,
         Transaction.timestamp,
-        func.coalesce(User.name, 'Unknown').label('sender_name'),
-        func.coalesce(User.email, 'Unknown').label('sender_email')
-    ).outerjoin(User, Transaction.sender_id == User.id).order_by(Transaction.timestamp.desc()).limit(50).all()
+        User.name.label('sender_name'),
+        User.email.label('sender_email')
+    ).join(User, Transaction.sender_id == User.id).order_by(Transaction.timestamp.desc()).limit(100).all()
     
     transaction_data = []
     
     # Process transactions
     for trans in transactions:
-        # Get receiver name
-        receiver = User.query.get(trans.id) if hasattr(trans, 'receiver_id') else None
-        receiver_name = receiver.name if receiver else 'Unknown'
+        # Get receiver details
+        receiver_query = db.session.query(Transaction, User).join(
+            User, Transaction.receiver_id == User.id
+        ).filter(Transaction.id == trans.id).first()
+        
+        receiver_name = receiver_query[1].name if receiver_query else 'Unknown'
         
         transaction_data.append({
             'id': trans.id,
@@ -145,7 +168,129 @@ def get_all_transactions():
             'receiver_name': receiver_name,
             'amount': float(trans.amount),
             'type': trans.type,
-            'reason': 'Budget Allocation' if trans.type == 'allocation' else 'Expense Payment'
+            'reason': trans.description or ('Budget Allocation' if trans.type == 'allocation' else 'Expense Payment')
         })
     
     return jsonify({'transactions': transaction_data})
+
+@superadmin_bp.route('/reports')
+@login_required
+def get_reports():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Get date range (default to last 30 days)
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=30)
+    
+    # Get all transactions
+    transactions = db.session.query(
+        Transaction.id,
+        Transaction.amount,
+        Transaction.type,
+        Transaction.description,
+        Transaction.timestamp,
+        User.name.label('sender_name'),
+        User.email.label('sender_email')
+    ).join(User, Transaction.sender_id == User.id).filter(
+        Transaction.timestamp >= start_date
+    ).order_by(Transaction.timestamp.desc()).all()
+    
+    # Get total allocations today
+    today_allocations = db.session.query(
+        func.sum(Transaction.amount)
+    ).filter(
+        Transaction.type == 'allocation',
+        func.date(Transaction.timestamp) == datetime.now().date()
+    ).scalar() or 0
+    
+    # Get total expenses today
+    today_expenses = db.session.query(
+        func.sum(Transaction.amount)
+    ).filter(
+        Transaction.type.in_(['expense', 'employee_fund']),
+        func.date(Transaction.timestamp) == datetime.now().date()
+    ).scalar() or 0
+    
+    # Get monthly summary
+    monthly_summary = db.session.query(
+        func.extract('month', Transaction.timestamp).label('month'),
+        func.extract('year', Transaction.timestamp).label('year'),
+        func.sum(case((Transaction.type == 'allocation', Transaction.amount), else_=0)).label('total_allocations'),
+        func.sum(case((Transaction.type.in_(['expense', 'employee_fund']), Transaction.amount), else_=0)).label('total_expenses')
+    ).filter(
+        Transaction.timestamp >= start_date
+    ).group_by(
+        func.extract('month', Transaction.timestamp),
+        func.extract('year', Transaction.timestamp)
+    ).all()
+    
+    return jsonify({
+        'today_summary': {
+            'allocations': float(today_allocations),
+            'expenses': float(today_expenses)
+        },
+        'transactions': [{
+            'id': t.id,
+            'sender_name': t.sender_name,
+            'sender_email': t.sender_email,
+            'amount': float(t.amount),
+            'type': t.type,
+            'description': t.description,
+            'date': t.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+        } for t in transactions],
+        'monthly_summary': [{
+            'month': int(m.month),
+            'year': int(m.year),
+            'total_allocations': float(m.total_allocations),
+            'total_expenses': float(m.total_expenses)
+        } for m in monthly_summary]
+    })
+
+@superadmin_bp.route('/add-employee', methods=['POST'])
+@login_required
+def add_employee():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+    password = data.get('password')
+    if not all([name, email, password]):
+        return jsonify({'error': 'Missing fields'}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already exists'}), 400
+    user = User(
+        name=name,
+        email=email,
+        password=generate_password_hash(password),
+        role='employee',
+        created_by=current_user.id
+    )
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'message': 'Employee added successfully'})
+
+@superadmin_bp.route('/add-client', methods=['POST'])
+@login_required
+def add_client():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+    password = data.get('password', 'password')
+    if not all([name, email, password]):
+        return jsonify({'error': 'Missing fields'}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already exists'}), 400
+    user = User(
+        name=name,
+        email=email,
+        password=generate_password_hash(password),
+        role='admin',
+        created_by=current_user.id
+    )
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'message': 'Client (Admin) added successfully'})

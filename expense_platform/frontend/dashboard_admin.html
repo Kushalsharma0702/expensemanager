@@ -3,19 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Expense Platform</title>
+    <title>Admin Dashboard - Expense Management Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <nav class="bg-white shadow-sm border-b">
+<body class="bg-gray-100 min-h-screen font-sans">
+    <nav class="bg-indigo-700 text-white shadow-lg">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-4">
-                <h1 class="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-                <div class="flex items-center space-x-4">
-                    <span id="userName" class="text-gray-700"></span>
-                    <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
-                        Logout
+                <div class="flex items-center">
+                    <i class="fas fa-chart-pie mr-3 text-xl"></i>
+                    <h1 class="text-2xl font-bold">Expense Management Portal</h1>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div class="flex items-center">
+                        <i class="fas fa-user-circle mr-2"></i>
+                        <span id="userName" class="text-white font-medium"></span>
+                    </div>
+                    <button id="logoutBtn" class="bg-white text-indigo-700 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors font-medium flex items-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i> Logout
                     </button>
                 </div>
             </div>
@@ -23,14 +30,17 @@
     </nav>
     
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">Dashboard Overview</h2>
+        
+        <!-- Notification area -->
+        <div id="notification" class="hidden mb-4 p-4 rounded-lg border text-center"></div>
+        
         <!-- Budget Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-xl shadow-sm">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 transition-all hover:shadow-lg">
                 <div class="flex items-center">
-                    <div class="p-2 bg-blue-100 rounded-lg">
-                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                        </svg>
+                    <div class="p-3 bg-blue-100 rounded-lg">
+                        <i class="fas fa-wallet text-blue-600 text-xl"></i>
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Total Budget</p>
@@ -39,12 +49,10 @@
                 </div>
             </div>
             
-            <div class="bg-white p-6 rounded-xl shadow-sm">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 transition-all hover:shadow-lg">
                 <div class="flex items-center">
-                    <div class="p-2 bg-red-100 rounded-lg">
-                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-                        </svg>
+                    <div class="p-3 bg-red-100 rounded-lg">
+                        <i class="fas fa-shopping-cart text-red-600 text-xl"></i>
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Total Spent</p>
@@ -53,12 +61,10 @@
                 </div>
             </div>
             
-            <div class="bg-white p-6 rounded-xl shadow-sm">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 transition-all hover:shadow-lg">
                 <div class="flex items-center">
-                    <div class="p-2 bg-green-100 rounded-lg">
-                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
+                    <div class="p-3 bg-green-100 rounded-lg">
+                        <i class="fas fa-piggy-bank text-green-600 text-xl"></i>
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Remaining</p>
@@ -67,12 +73,10 @@
                 </div>
             </div>
             
-            <div class="bg-white p-6 rounded-xl shadow-sm">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 transition-all hover:shadow-lg">
                 <div class="flex items-center">
-                    <div class="p-2 bg-yellow-100 rounded-lg">
-                        <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
+                    <div class="p-3 bg-amber-100 rounded-lg">
+                        <i class="fas fa-clock text-amber-600 text-xl"></i>
                     </div>
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Pending Requests</p>
@@ -82,18 +86,24 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             <!-- Budget Overview Chart -->
-            <div class="bg-white p-6 rounded-xl shadow-sm">
-                <h2 class="text-xl font-semibold text-gray-800 mb-6">Budget Overview</h2>
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-chart-pie mr-2 text-indigo-600"></i>
+                    Budget Overview
+                </h2>
                 <div class="h-64">
                     <canvas id="budgetChart"></canvas>
                 </div>
             </div>
             
             <!-- Employee Spending Chart -->
-            <div class="bg-white p-6 rounded-xl shadow-sm">
-                <h2 class="text-xl font-semibold text-gray-800 mb-6">Employee Spending</h2>
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-users mr-2 text-indigo-600"></i>
+                    Employee Spending
+                </h2>
                 <div class="h-64">
                     <canvas id="employeeChart"></canvas>
                 </div>
@@ -101,9 +111,12 @@
         </div>
         
         <!-- Pending Expenses Table -->
-        <div class="mt-8 bg-white rounded-xl shadow-sm overflow-hidden">
+        <div class="mb-8 bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
             <div class="p-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-6">Pending Expense Requests</h2>
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-hourglass-half mr-2 text-indigo-600"></i>
+                    Pending Expense Requests
+                </h2>
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
@@ -121,31 +134,200 @@
             </div>
         </div>
 
-        <!-- Employee Statistics Table -->
-        <div class="mt-8 bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="p-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-6">Employee Statistics</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Requests</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rejected</th>
-                            </tr>
-                        </thead>
-                        <tbody id="employeeStatsBody" class="bg-white divide-y divide-gray-200"></tbody>
-                    </table>
+        <!-- Two column layout for forms and employee data -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-1">
+                <!-- Form Section -->
+                <div class="space-y-8">
+                    <!-- Add Expense for Employee -->
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <i class="fas fa-plus-circle mr-2 text-indigo-600"></i>
+                            Add Expense for Employee
+                        </h2>
+                        <div id="expenseFormStatus" class="mb-4 hidden p-3 rounded-lg text-sm font-medium"></div>
+                        <form id="addExpenseForm" class="space-y-4">
+                            <div>
+                                <label for="expenseEmployeeSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Employee</label>
+                                <select id="expenseEmployeeSelect" name="expenseEmployeeSelect" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">Loading...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="expenseAmount" class="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
+                                <input type="number" id="expenseAmount" name="expenseAmount" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter amount">
+                            </div>
+                            <div>
+                                <label for="expenseReason" class="block text-sm font-medium text-gray-700 mb-2">Reason</label>
+                                <textarea id="expenseReason" name="expenseReason" rows="3" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Expense reason"></textarea>
+                            </div>
+                            <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center">
+                                <i class="fas fa-plus mr-2"></i> Add Expense
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Add New Employee Card -->
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <i class="fas fa-user-plus mr-2 text-indigo-600"></i>
+                            Add New Employee
+                        </h2>
+                        <div id="employeeFormStatus" class="mb-4 hidden p-3 rounded-lg text-sm font-medium"></div>
+                        <form id="addEmployeeForm" class="space-y-4">
+                            <div>
+                                <label for="employeeName" class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                                <input type="text" id="employeeName" name="employeeName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter employee name">
+                            </div>
+                            <div>
+                                <label for="employeeEmail" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                <input type="email" id="employeeEmail" name="employeeEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter employee email">
+                            </div>
+                            <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center">
+                                <i class="fas fa-user-plus mr-2"></i> Add Employee
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Allocate Funds to Employee Card -->
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mb-8">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4">Allocate Funds to Employee</h2>
+                        <form id="allocateFundForm" class="space-y-4">
+                            <div>
+                                <label for="allocateEmployeeSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Employee</label>
+                                <select id="allocateEmployeeSelect" name="allocateEmployeeSelect" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">Loading...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="allocateAmount" class="block text-sm font-medium text-gray-700 mb-2">Amount (₹)</label>
+                                <input type="number" id="allocateAmount" name="allocateAmount" step="0.01" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter amount">
+                            </div>
+                            <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">
+                                <i class="fas fa-hand-holding-usd mr-2"></i> Allocate Fund
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2">
+                <!-- Employee Statistics Table -->
+                <div class="mb-8 bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+                    <div class="p-6">
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <i class="fas fa-chart-line mr-2 text-indigo-600"></i>
+                            Employee Statistics
+                        </h2>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="bg-gray-50">
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Requests</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pending</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rejected</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="employeeStatsBody" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Employee Transactions Table -->
+                <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                                <i class="fas fa-exchange-alt mr-2 text-indigo-600"></i>
+                                Employee Transactions
+                            </h2>
+                            <button id="downloadTransactionsPdf" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center">
+                                <i class="fas fa-file-pdf mr-2"></i> Download PDF
+                            </button>
+                        </div>
+                        <div id="transactionsStatus" class="mb-4 hidden p-3 rounded-lg text-sm font-medium"></div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="bg-gray-50">
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="employeeTransactionsBody" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <div id="message" class="fixed bottom-4 right-4 max-w-sm"></div>
+    <!-- Toast notification -->
+    <div id="toast" class="fixed bottom-4 right-4 max-w-sm bg-white shadow-lg rounded-lg border border-gray-200 z-50 transform transition-transform duration-300 translate-y-full opacity-0">
+        <div class="p-4 flex items-center">
+            <div id="toastIcon" class="flex-shrink-0 mr-3"></div>
+            <div>
+                <p id="toastMessage" class="text-sm font-medium"></p>
+            </div>
+            <button onclick="hideToast()" class="ml-auto text-gray-400 hover:text-gray-500">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
     
+    <!-- LOAD ADMIN.JS FIRST - This handles all form logic -->
     <script src="/js/admin.js"></script>
+    
+    <!-- ONLY TOAST FUNCTIONS HERE - NO EVENT LISTENERS -->
+    <script>
+        // Global toast functions that can be called from admin.js
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+            
+            // Set message
+            toastMessage.textContent = message;
+            
+            // Set icon and color based on type
+            if (type === 'success') {
+                toastIcon.innerHTML = '<i class="fas fa-check-circle text-green-500 text-xl"></i>';
+                toast.classList.add('border-green-200');
+            } else if (type === 'error') {
+                toastIcon.innerHTML = '<i class="fas fa-exclamation-circle text-red-500 text-xl"></i>';
+                toast.classList.add('border-red-200');
+            } else if (type === 'warning') {
+                toastIcon.innerHTML = '<i class="fas fa-exclamation-triangle text-yellow-500 text-xl"></i>';
+                toast.classList.add('border-yellow-200');
+            } else if (type === 'info') {
+                toastIcon.innerHTML = '<i class="fas fa-info-circle text-blue-500 text-xl"></i>';
+                toast.classList.add('border-blue-200');
+            }
+            
+            // Show the toast
+            toast.classList.remove('translate-y-full', 'opacity-0');
+            
+            // Auto hide after 5 seconds
+            setTimeout(hideToast, 5000);
+        }
+        
+        function hideToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('translate-y-full', 'opacity-0');
+            
+            // Remove type-specific classes after animation
+            setTimeout(() => {
+                toast.classList.remove('border-green-200', 'border-red-200', 'border-yellow-200', 'border-blue-200');
+            }, 300);
+        }
+    </script>
 </body>
 </html>

@@ -1,3 +1,12 @@
+// At the top of each dashboard JS file
+document.addEventListener('DOMContentLoaded', async function() {
+    const res = await fetch('/auth/check-session', { credentials: 'include' });
+    if (res.status !== 200) {
+        window.location.href = '/';
+        return;
+    }
+    // ...rest of your dashboard code...
+});
 document.addEventListener('DOMContentLoaded', function() {
     loadUserInfo();
     loadAdmins();
@@ -5,21 +14,13 @@ document.addEventListener('DOMContentLoaded', function() {
     loadMyRequests();
     
     // Logout functionality
-    document.getElementById('logoutBtn').addEventListener('click', async function() {
-        try {
-            const response = await fetch('/auth/logout', {
-                method: 'POST',
-                credentials: 'include'
-            });
-            
-            if (response.ok) {
-                window.location.href = '/';
-            }
-        } catch (error) {
-            console.error('Logout error:', error);
-        }
-    });
-    
+    // In all dashboard JS files
+// In all dashboard JS files
+document.getElementById('logoutBtn').addEventListener('click', async function() {
+    await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+    localStorage.clear();
+    window.location.href = '/';
+});
     // Expense form submission
     document.getElementById('expenseForm').addEventListener('submit', async function(e) {
         e.preventDefault();

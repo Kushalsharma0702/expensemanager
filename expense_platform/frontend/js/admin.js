@@ -1,42 +1,215 @@
+// Session check - runs first
+document.addEventListener('DOMContentLoaded', async function() {
+    const res = await fetch('/auth/check-session', { credentials: 'include' });
+    if (res.status !== 200) {
+        window.location.href = '/';
+        return;
+    }
+});
+
+// Chart variables
 let budgetChart, employeeChart;
 
+// Main DOMContentLoaded event - runs once
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize dashboard
     loadUserInfo();
     loadDashboard();
     loadPendingExpenses();
     loadEmployeeStats();
+    loadReports();
+    loadEmployeeTransactions();
+    populateExpenseEmployeeSelect();
+    populateAllocateEmployeeSelect();
     
-    document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-    
-    // Refresh data every 30 seconds
-    setInterval(() => {
-        loadDashboard();
-        loadPendingExpenses();
-        loadEmployeeStats();
-    }, 30000);
+    // LOGOUT FUNCTIONALITY - CRITICAL FIX
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async function() {
+            try {
+                await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/';
+            }
+        });
+    }
+
+    // ADD EXPENSE FORM HANDLER
+    const addExpenseForm = document.getElementById('addExpenseForm');
+    if (addExpenseForm) {
+        addExpenseForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const employee_id = parseInt(document.getElementById('expenseEmployeeSelect').value);
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const reason = document.getElementById('expenseReason').value.trim();
+            
+            if (!employee_id || !amount || !reason) {
+                showToast('All fields are required', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/add-expense', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ employee_id, amount, reason }),
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast('Expense added successfully!', 'success');
+                    this.reset();
+                    loadDashboard();
+                    loadEmployeeStats();
+                    loadEmployeeTransactions();
+                } else {
+                    showToast(result.error || 'Failed to add expense', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding expense:', error);
+                showToast('Error adding expense', 'error');
+            }
+        });
+    }
+
+    // ADD EMPLOYEE FORM HANDLER
+    const addEmployeeForm = document.getElementById('addEmployeeForm');
+    if (addEmployeeForm) {
+        addEmployeeForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('employeeName').value.trim();
+            const email = document.getElementById('employeeEmail').value.trim();
+            
+            if (!name || !email) {
+                showToast('Name and email are required', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/add-employee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password: 'password' }),
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast('Employee added successfully! Default password: password', 'success');
+                    this.reset();
+                    populateExpenseEmployeeSelect();
+                    populateAllocateEmployeeSelect();
+                    loadEmployeeStats();
+                } else {
+                    showToast(result.error || 'Failed to add employee', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding employee:', error);
+                showToast('Error adding employee', 'error');
+            }
+        });
+    }
+
+    // ALLOCATE FUND FORM HANDLER
+    const allocateFundForm = document.getElementById('allocateFundForm');
+    if (allocateFundForm) {
+        allocateFundForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const employee_id = parseInt(document.getElementById('allocateEmployeeSelect').value);
+            const amount = parseFloat(document.getElementById('allocateAmount').value);
+            
+            if (!employee_id || !amount || amount <= 0) {
+                showToast('Please select employee and enter valid amount', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/admin/allocate-fund', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ employee_id, amount }),
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast('Fund allocated successfully!', 'success');
+                    this.reset();
+                    loadDashboard();
+                    loadEmployeeStats();
+                } else {
+                    showToast(result.error || 'Failed to allocate fund', 'error');
+                }
+            } catch (error) {
+                console.error('Error allocating fund:', error);
+                showToast('Error allocating fund', 'error');
+            }
+        });
+    }
+
+    // DOWNLOAD PDF BUTTON
+    const downloadBtn = document.getElementById('downloadTransactionsPdf');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', async function() {
+            try {
+                const res = await fetch('/admin/employee-transactions-pdf', { 
+                    method: 'GET', 
+                    credentials: 'include' 
+                });
+                
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'employee_transactions.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    showToast('PDF downloaded successfully!', 'success');
+                } else {
+                    showToast('Failed to generate PDF', 'error');
+                }
+            } catch (error) {
+                console.error('PDF download error:', error);
+                showToast('Error downloading PDF', 'error');
+            }
+        });
+    }
 });
 
+// LOAD USER INFO
 async function loadUserInfo() {
     try {
-        const response = await fetch('/auth/me', {
-            credentials: 'include'
-        });
-        
+        const response = await fetch('/auth/me', { credentials: 'include' });
         if (response.ok) {
             const user = await response.json();
-            document.getElementById('userName').textContent = user.name;
+            const userNameElement = document.getElementById('userName');
+            if (userNameElement) {
+                userNameElement.textContent = user.name;
+            }
         }
     } catch (error) {
         console.error('Error loading user info:', error);
     }
 }
 
+// LOAD DASHBOARD DATA
 async function loadDashboard() {
     try {
-        const response = await fetch('/admin/dashboard', {
-            credentials: 'include'
-        });
-        
+        const response = await fetch('/admin/dashboard', { credentials: 'include' });
         if (response.ok) {
             const data = await response.json();
             updateDashboardCards(data);
@@ -47,56 +220,23 @@ async function loadDashboard() {
     }
 }
 
+// UPDATE DASHBOARD CARDS
 function updateDashboardCards(data) {
-    document.getElementById('totalBudget').textContent = `₹${data.budget.total_budget.toFixed(2)}`;
-    document.getElementById('totalSpent').textContent = `₹${data.budget.total_spent.toFixed(2)}`;
-    document.getElementById('remaining').textContent = `₹${data.budget.remaining.toFixed(2)}`;
-    document.getElementById('pendingCount').textContent = data.pending_count;
+    const totalBudgetEl = document.getElementById('totalBudget');
+    const totalSpentEl = document.getElementById('totalSpent');
+    const remainingEl = document.getElementById('remaining');
+    const pendingCountEl = document.getElementById('pendingCount');
+
+    if (totalBudgetEl) totalBudgetEl.textContent = `₹${data.budget.total_budget.toFixed(2)}`;
+    if (totalSpentEl) totalSpentEl.textContent = `₹${data.budget.total_spent.toFixed(2)}`;
+    if (remainingEl) remainingEl.textContent = `₹${data.budget.remaining.toFixed(2)}`;
+    if (pendingCountEl) pendingCountEl.textContent = data.pending_count;
 }
 
-function updateBudgetChart(budget) {
-    const ctx = document.getElementById('budgetChart').getContext('2d');
-    
-    if (budgetChart) {
-        budgetChart.destroy();
-    }
-    
-    budgetChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Spent', 'Remaining'],
-            datasets: [{
-                data: [budget.total_spent, budget.remaining],
-                backgroundColor: ['#EF4444', '#22C55E'],
-                borderColor: ['#DC2626', '#16A34A'],
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return context.label + ': ₹' + context.parsed.toLocaleString();
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
+// LOAD PENDING EXPENSES
 async function loadPendingExpenses() {
     try {
-        const response = await fetch('/admin/expenses', {
-            credentials: 'include'
-        });
-        
+        const response = await fetch('/admin/expenses', { credentials: 'include' });
         if (response.ok) {
             const data = await response.json();
             updatePendingExpenses(data.expenses);
@@ -106,8 +246,11 @@ async function loadPendingExpenses() {
     }
 }
 
+// UPDATE PENDING EXPENSES TABLE
 function updatePendingExpenses(expenses) {
     const tbody = document.getElementById('pendingExpensesBody');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     
     if (expenses.length === 0) {
@@ -152,24 +295,129 @@ function updatePendingExpenses(expenses) {
     });
 }
 
-async function loadEmployeeStats() {
+// APPROVE EXPENSE
+async function approveExpense(expenseId) {
+    if (!confirm('Approve this expense?')) return;
+    
     try {
-        const response = await fetch('/admin/employee-stats', {
+        const response = await fetch('/admin/approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expense_id: expenseId }),
             credentials: 'include'
         });
         
+        const result = await response.json();
+        
+        if (response.ok) {
+            showToast('Expense approved successfully!', 'success');
+            loadDashboard();
+            loadPendingExpenses();
+            loadEmployeeStats();
+        } else {
+            showToast(result.error || 'Failed to approve expense', 'error');
+        }
+    } catch (error) {
+        console.error('Error approving expense:', error);
+        showToast('Error approving expense', 'error');
+    }
+}
+
+// REJECT EXPENSE
+async function rejectExpense(expenseId) {
+    if (!confirm('Reject this expense?')) return;
+    
+    try {
+        const response = await fetch('/admin/reject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expense_id: expenseId }),
+            credentials: 'include'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showToast('Expense rejected successfully!', 'success');
+            loadDashboard();
+            loadPendingExpenses();
+        } else {
+            showToast(result.error || 'Failed to reject expense', 'error');
+        }
+    } catch (error) {
+        console.error('Error rejecting expense:', error);
+        showToast('Error rejecting expense', 'error');
+    }
+}
+
+// POPULATE EMPLOYEE SELECT FOR EXPENSE
+async function populateExpenseEmployeeSelect() {
+    const select = document.getElementById('expenseEmployeeSelect');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Loading...</option>';
+    try {
+        const res = await fetch('/admin/employees', { credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            select.innerHTML = '<option value="">Select employee...</option>';
+            data.employees.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp.id;
+                option.textContent = `${emp.name} (${emp.email})`;
+                select.appendChild(option);
+            });
+        } else {
+            select.innerHTML = '<option value="">No employees found</option>';
+        }
+    } catch {
+        select.innerHTML = '<option value="">Error loading employees</option>';
+    }
+}
+
+// POPULATE EMPLOYEE SELECT FOR ALLOCATION
+async function populateAllocateEmployeeSelect() {
+    const select = document.getElementById('allocateEmployeeSelect');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Loading...</option>';
+    try {
+        const res = await fetch('/admin/employees', { credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            select.innerHTML = '<option value="">Select employee...</option>';
+            data.employees.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp.id;
+                option.textContent = `${emp.name} (${emp.email})`;
+                select.appendChild(option);
+            });
+        } else {
+            select.innerHTML = '<option value="">No employees found</option>';
+        }
+    } catch {
+        select.innerHTML = '<option value="">Error loading employees</option>';
+    }
+}
+
+// LOAD EMPLOYEE STATS
+async function loadEmployeeStats() {
+    try {
+        const response = await fetch('/admin/employee-stats', { credentials: 'include' });
         if (response.ok) {
             const data = await response.json();
             updateEmployeeStats(data.employees);
-            updateEmployeeChart(data.employees);
         }
     } catch (error) {
         console.error('Error loading employee stats:', error);
     }
 }
 
+// UPDATE EMPLOYEE STATS TABLE
 function updateEmployeeStats(employees) {
     const tbody = document.getElementById('employeeStatsBody');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     
     if (employees.length === 0) {
@@ -200,126 +448,121 @@ function updateEmployeeStats(employees) {
     });
 }
 
-function updateEmployeeChart(employees) {
-    const ctx = document.getElementById('employeeChart').getContext('2d');
-    
-    if (employeeChart) {
-        employeeChart.destroy();
-    }
-    
-    const labels = employees.map(e => e.name);
-    const spendingData = employees.map(e => e.approved_amount);
-    
-    employeeChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Approved Amount',
-                data: spendingData,
-                backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                borderColor: 'rgba(34, 197, 94, 1)',
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function(value) {
-                            return '₹' + value.toLocaleString();
-                        }
-                    }
+// LOAD EMPLOYEE TRANSACTIONS
+async function loadEmployeeTransactions() {
+    try {
+        const res = await fetch('/admin/employee-transactions', { credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            const tbody = document.getElementById('employeeTransactionsBody');
+            if (tbody) {
+                tbody.innerHTML = '';
+                if (data.transactions && data.transactions.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No transactions found</td></tr>`;
+                    return;
                 }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return 'Approved: ₹' + context.parsed.y.toLocaleString();
-                        }
-                    }
+                if (data.transactions) {
+                    data.transactions.forEach(tx => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td class="px-6 py-4">${new Date(tx.date).toLocaleDateString()}</td>
+                            <td class="px-6 py-4">${tx.employee_name}</td>
+                            <td class="px-6 py-4">₹${tx.amount.toFixed(2)}</td>
+                            <td class="px-6 py-4">${tx.type}</td>
+                            <td class="px-6 py-4">${tx.description}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
                 }
             }
         }
-    });
+    } catch (e) {
+        console.error('Error loading transactions:', e);
+    }
 }
 
-async function approveExpense(expenseId) {
+// LOAD REPORTS
+async function loadReports() {
     try {
-        const response = await fetch('/admin/approve', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ expense_id: expenseId }),
-            credentials: 'include'
-        });
-        
-        const result = await response.json();
-        
+        const response = await fetch('/admin/reports', { credentials: 'include' });
         if (response.ok) {
-            showMessage('Expense approved successfully!', 'success');
-            loadDashboard();
-            loadPendingExpenses();
-            loadEmployeeStats();
-        } else {
-            showMessage(result.error || 'Failed to approve expense', 'error');
+            const data = await response.json();
+            updateReportsDisplay(data.report_data);
         }
     } catch (error) {
-        showMessage('Error approving expense', 'error');
+        console.error('Error loading reports:', error);
     }
 }
 
-async function rejectExpense(expenseId) {
+// UPDATE REPORTS DISPLAY
+function updateReportsDisplay(reportData) {
+    // Implementation for reports display
+    console.log('Reports loaded:', reportData);
+}
+
+// UPDATE BUDGET CHART
+function updateBudgetChart(budget) {
+    // Implementation for budget chart
+    console.log('Budget chart updated:', budget);
+}
+
+// EXPORT FUNCTIONS
+async function exportPDF() {
     try {
-        const response = await fetch('/admin/reject', {
+        showToast('Generating PDF report...', 'info');
+        
+        const response = await fetch('/admin/export-pdf', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ expense_id: expenseId }),
             credentials: 'include'
         });
-        
-        const result = await response.json();
         
         if (response.ok) {
-            showMessage('Expense rejected successfully!', 'success');
-            loadPendingExpenses();
-            loadEmployeeStats();
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `admin_report_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            
+            showToast('PDF report downloaded successfully!', 'success');
         } else {
-            showMessage(result.error || 'Failed to reject expense', 'error');
+            showToast('Failed to generate PDF report', 'error');
         }
     } catch (error) {
-        showMessage('Error rejecting expense', 'error');
+        console.error('Error exporting PDF:', error);
+        showToast('Error generating PDF report', 'error');
     }
 }
 
-async function handleLogout() {
+async function exportExcel() {
     try {
-        await fetch('/auth/logout', {
+        showToast('Generating Excel report...', 'info');
+        
+        const response = await fetch('/admin/export-excel', {
             method: 'POST',
             credentials: 'include'
         });
-        window.location.href = '/';
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `admin_report_${new Date().toISOString().split('T')[0]}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            
+            showToast('Excel report downloaded successfully!', 'success');
+        } else {
+            showToast('Failed to generate Excel report', 'error');
+        }
     } catch (error) {
-        console.error('Error logging out:', error);
+        console.error('Error exporting Excel:', error);
+        showToast('Error generating Excel report', 'error');
     }
-}
-
-function showMessage(message, type) {
-    const messageDiv = document.getElementById('message');
-    messageDiv.className = `fixed bottom-4 right-4 max-w-sm p-4 rounded-lg shadow-lg ${
-        type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-    }`;
-    messageDiv.textContent = message;
-    
-    setTimeout(() => {
-        messageDiv.textContent = '';
-        messageDiv.className = 'fixed bottom-4 right-4 max-w-sm';
-    }, 5000);
 }

@@ -15,59 +15,68 @@ load_dotenv()
 
 # Fix: Use correct path to frontend directory
 app = Flask(__name__, static_folder='../frontend', static_url_path='/')
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback-secret-key')
+
+# Configure Flask app for sessions
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-super-secret-key-here-change-this-in-production')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Debug: Print the paths to verify
-print(f"Database URL: {app.config['SQLALCHEMY_DATABASE_URI']}")
-print(f"Static folder: {app.static_folder}")
-print(f"Static folder absolute path: {os.path.abspath(app.static_folder)}")
+# Session configuration for parallel users
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
 
 # Initialize extensions
 db.init_app(app)
 login_manager.init_app(app)
 login_manager.login_view = 'auth.login'
-CORS(app, supports_credentials=True)
+login_manager.session_protection = 'strong'  # Enable strong session protection
 
-# Register Blueprints
+# Enable CORS for frontend
+CORS(app, 
+     origins=['http://127.0.0.1:5000', 'http://localhost:5000'],
+     supports_credentials=True,
+     allow_headers=['Content-Type', 'Authorization'],
+     methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+)
+
+# User loader for Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Register blueprints
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(superadmin_bp, url_prefix='/superadmin')
 app.register_blueprint(admin_bp, url_prefix='/admin')
 app.register_blueprint(employee_bp, url_prefix='/employee')
 
-@login_manager.user_loader
-def load_user(user_id):
-    return db.session.get(User, int(user_id))
-
-# --------------------------
-# Routes to serve frontend
-# --------------------------
-
+# Serve static files (HTML, CSS, JS)
 @app.route('/')
-def index():
+def serve_login():
     return send_from_directory(app.static_folder, 'login.html')
 
-@app.route('/dashboard/superadmin')
+@app.route('/dashboard/<role>')
 @login_required
-def dashboard_superadmin():
-    if current_user.role != 'superadmin':
-        return jsonify({'error': 'Unauthorized'}), 403
-    return send_from_directory(app.static_folder, 'dashboard_superadmin.html')
+def serve_dashboard(role):
+    # Only allow access if user is authenticated and role matches
+    if not current_user.is_authenticated:
+        return send_from_directory(app.static_folder, 'login.html')
+    if current_user.role != role:
+        # Optionally, redirect to their correct dashboard
+        return jsonify({'error': 'Forbidden'}), 403
 
-@app.route('/dashboard/admin')
-@login_required
-def dashboard_admin():
-    if current_user.role != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
-    return send_from_directory(app.static_folder, 'dashboard_admin.html')
+    dashboard_files = {
+        'superadmin': 'dashboard_superadmin.html',
+        'admin': 'dashboard_admin.html',
+        'employee': 'dashboard_employee.html'
+    }
 
-@app.route('/dashboard/employee')
-@login_required
-def dashboard_employee():
-    if current_user.role != 'employee':
-        return jsonify({'error': 'Unauthorized'}), 403
-    return send_from_directory(app.static_folder, 'dashboard_employee.html')
+    if role in dashboard_files:
+        return send_from_directory(app.static_folder, dashboard_files[role])
+    else:
+        return jsonify({'error': 'Invalid role'}), 404
 
 # Serve JS files
 @app.route('/js/<path:filename>')
@@ -81,6 +90,20 @@ def serve_css(filename):
     css_path = os.path.join(app.static_folder, 'css')
     return send_from_directory(css_path, filename)
 
+# Add session status endpoint
+@app.route('/session-status')
+@login_required
+def session_status():
+    return jsonify({
+        'authenticated': True,
+        'user': {
+            'id': current_user.id,
+            'name': current_user.name,
+            'email': current_user.email,
+            'role': current_user.role
+        }
+    })
+
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):
@@ -89,6 +112,10 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
+
+@app.errorhandler(403)
+def forbidden(error):
+    return jsonify({'error': 'Forbidden - Access denied'}), 403
 
 # --------------------------
 # Start App
@@ -101,4 +128,7 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"Error creating database tables: {e}")
     
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    app.run(debug=True, host='127.0.0.1', port=5000, threaded=True)
+
+def create_app():
+    return app
