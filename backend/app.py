@@ -119,9 +119,6 @@ def internal_error(error):
 def forbidden(error):
     return jsonify({'error': 'Forbidden - Access denied'}), 403
 
-# --------------------------
-# Start App
-# --------------------------
 if __name__ == '__main__':
     with app.app_context():
         try:
@@ -131,6 +128,3 @@ if __name__ == '__main__':
             print(f"Error creating database tables: {e}")
     
     app.run(debug=True, host='127.0.0.1', port=5000, threaded=True)
-
-def create_app():
-    return app
