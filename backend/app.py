@@ -13,21 +13,24 @@ from routes.ai_insights import ai_insights_bp  # ADD THIS LINE
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# Fix: Use correct path to frontend directory
 app = Flask(__name__, static_folder='../frontend', static_url_path='/')
 
-# Configure Flask app for sessions
+# Convert DATABASE_URL to SQLALCHEMY_DATABASE_URI
+if "SQLALCHEMY_DATABASE_URI" not in os.environ and "DATABASE_URL" in os.environ:
+    os.environ["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
+
+# Secure & database configs
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-super-secret-key-here-change-this-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')  # ✅ fixed here
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Session configuration for parallel users
-app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+# Session cookies
+app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
-print("Database URL:", os.environ.get("DATABASE_URL"))
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24h
+
+print("✅ Database URL:", app.config['SQLALCHEMY_DATABASE_URI'])
 
 # Initialize extensions
 db.init_app(app)
@@ -120,12 +123,13 @@ def internal_error(error):
 def forbidden(error):
     return jsonify({'error': 'Forbidden - Access denied'}), 403
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     with app.app_context():
         try:
             db.create_all()
-            print("Database tables created successfully!")
+            print("✅ Database tables created successfully!")
         except Exception as e:
-            print(f"Error creating database tables: {e}")
+            print(f"❌ Error creating database tables: {e}")
     
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
+    # 🔥 Use Railway's port (8080) instead of 127.0.0.1
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
