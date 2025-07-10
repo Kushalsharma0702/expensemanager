@@ -13,7 +13,13 @@ from routes.ai_insights import ai_insights_bp  # ADD THIS LINE
 from dotenv import load_dotenv
 
 load_dotenv()
-app = Flask(__name__, static_folder='../frontend', static_url_path='/')
+# Before (relative path)
+# app = Flask(__name__, static_folder='../frontend', static_url_path='/')
+
+# ✅ After (absolute path works on all platforms)
+frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../frontend')
+app = Flask(__name__, static_folder=frontend_path, static_url_path='/')
+
 
 # Convert DATABASE_URL to SQLALCHEMY_DATABASE_URI
 if "SQLALCHEMY_DATABASE_URI" not in os.environ and "DATABASE_URL" in os.environ:
