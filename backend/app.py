@@ -27,6 +27,7 @@ app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HT
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours
+print("Database URL:", os.environ.get("DATABASE_URL"))
 
 # Initialize extensions
 db.init_app(app)
@@ -127,4 +128,4 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"Error creating database tables: {e}")
     
-    app.run(debug=True, host='127.0.0.1', port=5000, threaded=True)
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
