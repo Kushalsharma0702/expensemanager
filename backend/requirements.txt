@@ -5,3 +5,14 @@ Flask-CORS==4.0.0
 python-dotenv==1.0.0
 psycopg2-binary==2.9.7
 Werkzeug==2.3.7
+gunicorn==21.2.0
+reportlab==4.0.4
+requests==2.31.0
+# For AI insights and analytics
+numpy==1.26.4
+# For migrations (if you use Flask-Migrate)
+Flask-Migrate==4.0.7
+# For parsing URLs in migration scripts
+urllib3==2.2.1
+# For type hints and linting (optional, but recommended)
+typing-extensions==4.11.0
