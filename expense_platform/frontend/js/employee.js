@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAdmins();
     loadStats();
     loadMyRequests();
+    loadEmployeeInsights();
     
     // Logout functionality
     // In all dashboard JS files
@@ -241,3 +242,156 @@ function showMessage(message, type) {
         messageDiv.className = 'fixed bottom-4 right-4 max-w-sm';
     }, 5000);
 }
+
+let employeeSpendingChart, employeeStatusChart;
+
+async function loadEmployeeInsights() {
+    try {
+        const response = await fetch('/ai/employee/spending-insights', { credentials: 'include' });
+        if (response.ok) {
+            const data = await response.json();
+            updateEmployeeSpendingChart(data.monthly_trends);
+            updateEmployeeStatusChart(data.status_breakdown);
+            displayEmployeeInsights(data.insights);
+            updateResponseTimeDisplay(data.avg_response_time_hours);
+        }
+    } catch (error) {
+        console.error('Error loading employee insights:', error);
+    }
+}
+
+function updateEmployeeSpendingChart(monthlyData) {
+    const ctx = document.getElementById('employeeSpendingChart');
+    if (!ctx) return;
+
+    if (employeeSpendingChart) {
+        employeeSpendingChart.destroy();
+    }
+
+    employeeSpendingChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: monthlyData.map(d => d.period),
+            datasets: [{
+                label: 'Monthly Spending (₹)',
+                data: monthlyData.map(d => d.total_amount),
+                backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                borderColor: 'rgb(59, 130, 246)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Your Monthly Spending Trend'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Amount (₹)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateEmployeeStatusChart(statusData) {
+    const ctx = document.getElementById('employeeStatusChart');
+    if (!ctx) return;
+
+    if (employeeStatusChart) {
+        employeeStatusChart.destroy();
+    }
+
+    const labels = Object.keys(statusData);
+    const data = Object.values(statusData).map(item => item.count);
+    const backgroundColors = {
+        'approved': '#10B981',
+        'pending': '#F59E0B',
+        'rejected': '#EF4444'
+    };
+
+    employeeStatusChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels.map(label => label.charAt(0).toUpperCase() + label.slice(1)),
+            datasets: [{
+                data: data,
+                backgroundColor: labels.map(label => backgroundColors[label] || '#6B7280'),
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Your Request Status Breakdown'
+                },
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function updateResponseTimeDisplay(avgResponseHours) {
+    const element = document.getElementById('avgResponseTime');
+    if (element) {
+        if (avgResponseHours < 24) {
+            element.textContent = `${avgResponseHours.toFixed(1)} hours`;
+            element.className = 'text-green-600 font-semibold';
+        } else if (avgResponseHours < 72) {
+            element.textContent = `${avgResponseHours.toFixed(1)} hours`;
+            element.className = 'text-yellow-600 font-semibold';
+        } else {
+            element.textContent = `${avgResponseHours.toFixed(1)} hours`;
+            element.className = 'text-red-600 font-semibold';
+        }
+    }
+}
+
+function displayEmployeeInsights(insights) {
+    const container = document.getElementById('employeeInsightsContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    insights.forEach(insight => {
+        const insightCard = document.createElement('div');
+        insightCard.className = `p-4 rounded-lg border-l-4 mb-4 ${getInsightClasses(insight.type)}`;
+        
+        insightCard.innerHTML = `
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    ${getInsightIcon(insight.type)}
+                </div>
+                <div class="ml-3">
+                    <h4 class="text-sm font-medium">${insight.title}</h4>
+                    <p class="text-sm mt-1">${insight.message}</p>
+                    <p class="text-xs mt-2 opacity-75"><strong>Tip:</strong> ${insight.recommendation}</p>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(insightCard);
+    });
+}
+
+// Add to your existing DOMContentLoaded event
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing code ...
+    loadEmployeeInsights();
+    
+    // Refresh employee insights every 15 minutes
+    setInterval(loadEmployeeInsights, 900000);
+});

@@ -82,6 +82,44 @@
             </div>
         </div>
 
+        <!-- Personal Insights Section -->
+        <div class="mb-8 bg-white rounded-xl shadow-md border border-gray-100">
+            <div class="p-6">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-lightbulb mr-2 text-yellow-600"></i>
+                    Personal Insights
+                </h2>
+                <div id="employeeInsightsContainer" class="mb-6">
+                    <!-- Employee insights will be loaded here -->
+                </div>
+                
+                <!-- Response Time Display -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <p class="text-sm text-gray-600">Average Response Time</p>
+                    <p id="avgResponseTime" class="text-xl font-semibold">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Personal Analytics Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Personal Spending Trend -->
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 class="text-md font-semibold text-gray-800 mb-4">Your Spending Trend</h3>
+                <div class="h-64">
+                    <canvas id="employeeSpendingChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Request Status Breakdown -->
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 class="text-md font-semibold text-gray-800 mb-4">Request Status</h3>
+                <div class="h-64">
+                    <canvas id="employeeStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Submit Expense Form -->
             <div class="lg:col-span-1">

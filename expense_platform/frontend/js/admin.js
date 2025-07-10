@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Chart variables
 let budgetChart, employeeChart;
 
+// AI Insights Charts
+let spendingTrendChart, employeePerformanceChart, dayPatternsChart;
+
 // Main DOMContentLoaded event - runs once
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize dashboard
@@ -188,6 +191,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // AI insights
+    loadAIInsights();
+    
+    // Refresh AI insights every 5 minutes
+    setInterval(loadAIInsights, 300000);
 });
 
 // LOAD USER INFO
@@ -565,4 +574,243 @@ async function exportExcel() {
         console.error('Error exporting Excel:', error);
         showToast('Error generating Excel report', 'error');
     }
+}
+
+// Load AI insights data
+async function loadAIInsights() {
+    try {
+        const response = await fetch('/ai/admin/spending-trends', { credentials: 'include' });
+        if (response.ok) {
+            const data = await response.json();
+            updateSpendingTrendChart(data.monthly_trends);
+            updateEmployeePerformanceChart(data.employee_insights);
+            updateDayPatternsChart(data.day_patterns);
+            displayAIInsights(data.insights);
+        }
+    } catch (error) {
+        console.error('Error loading AI insights:', error);
+    }
+}
+
+function updateSpendingTrendChart(monthlyData) {
+    const ctx = document.getElementById('spendingTrendChart');
+    if (!ctx) return;
+
+    if (spendingTrendChart) {
+        spendingTrendChart.destroy();
+    }
+
+    spendingTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: monthlyData.map(d => d.period),
+            datasets: [
+                {
+                    label: 'Total Spent (₹)',
+                    data: monthlyData.map(d => d.total_spent),
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Expense Count',
+                    data: monthlyData.map(d => d.expense_count),
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Monthly Spending Trends'
+                },
+                legend: {
+                    display: true
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Amount (₹)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Count'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+}
+
+function updateEmployeePerformanceChart(employeeData) {
+    const ctx = document.getElementById('employeePerformanceChart');
+    if (!ctx) return;
+
+    if (employeePerformanceChart) {
+        employeePerformanceChart.destroy();
+    }
+
+    // Sort by efficiency score
+    employeeData.sort((a, b) => b.efficiency_score - a.efficiency_score);
+
+    employeePerformanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: employeeData.map(emp => emp.name),
+            datasets: [
+                {
+                    label: 'Total Spent (₹)',
+                    data: employeeData.map(emp => emp.total_spent),
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Efficiency Score',
+                    data: employeeData.map(emp => emp.efficiency_score),
+                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                    borderColor: 'rgb(34, 197, 94)',
+                    borderWidth: 1,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Employee Performance Analysis'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Amount (₹)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Efficiency Score'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateDayPatternsChart(dayData) {
+    const ctx = document.getElementById('dayPatternsChart');
+    if (!ctx) return;
+
+    if (dayPatternsChart) {
+        dayPatternsChart.destroy();
+    }
+
+    dayPatternsChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: dayData.map(d => d.day),
+            datasets: [{
+                data: dayData.map(d => d.total_amount),
+                backgroundColor: [
+                    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                    '#9966FF', '#FF9F40', '#FF6384'
+                ],
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Spending by Day of Week'
+                },
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function displayAIInsights(insights) {
+    const container = document.getElementById('aiInsightsContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    insights.forEach(insight => {
+        const insightCard = document.createElement('div');
+        insightCard.className = `p-4 rounded-lg border-l-4 mb-4 ${getInsightClasses(insight.type)}`;
+        
+        insightCard.innerHTML = `
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    ${getInsightIcon(insight.type)}
+                </div>
+                <div class="ml-3">
+                    <h4 class="text-sm font-medium">${insight.title}</h4>
+                    <p class="text-sm mt-1">${insight.message}</p>
+                    <p class="text-xs mt-2 opacity-75"><strong>Recommendation:</strong> ${insight.recommendation}</p>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(insightCard);
+    });
+}
+
+function getInsightClasses(type) {
+    const classes = {
+        'success': 'bg-green-50 border-green-400 text-green-800',
+        'warning': 'bg-yellow-50 border-yellow-400 text-yellow-800',
+        'error': 'bg-red-50 border-red-400 text-red-800',
+        'info': 'bg-blue-50 border-blue-400 text-blue-800'
+    };
+    return classes[type] || classes.info;
+}
+
+function getInsightIcon(type) {
+    const icons = {
+        'success': '<i class="fas fa-check-circle text-green-500"></i>',
+        'warning': '<i class="fas fa-exclamation-triangle text-yellow-500"></i>',
+        'error': '<i class="fas fa-exclamation-circle text-red-500"></i>',
+        'info': '<i class="fas fa-info-circle text-blue-500"></i>'
+    };
+    return icons[type] || icons.info;
 }

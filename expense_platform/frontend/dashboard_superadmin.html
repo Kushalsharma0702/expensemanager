@@ -82,6 +82,62 @@
             </div>
         </div>
 
+        <!-- System Analytics Section -->
+        <div class="mb-8 bg-white rounded-xl shadow-md border border-gray-100">
+            <div class="p-6">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-chart-line mr-2 text-green-600"></i>
+                    System Analytics & Insights
+                </h2>
+                <div id="systemInsightsContainer" class="mb-6">
+                    <!-- System insights will be loaded here -->
+                </div>
+                
+                <!-- Additional KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-600">Total Transactions</p>
+                        <p id="systemTotalTransactions" class="text-xl font-semibold">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-600">Active Admins</p>
+                        <p id="systemTotalAdmins" class="text-xl font-semibold">0</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-600">Avg Utilization</p>
+                        <p id="systemAvgUtilization" class="text-xl font-semibold">0%</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Analytics Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Admin Performance Matrix -->
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 class="text-md font-semibold text-gray-800 mb-4">Admin Performance Matrix</h3>
+                <div class="h-80">
+                    <canvas id="adminComparisonChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- System Activity Trends -->
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 class="text-md font-semibold text-gray-800 mb-4">Activity Trends</h3>
+                <div class="h-80">
+                    <canvas id="activityTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Approval Rates Chart -->
+        <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mb-8">
+            <h3 class="text-md font-semibold text-gray-800 mb-4">System-wide Approval Rates</h3>
+            <div class="h-64">
+                <canvas id="approvalRatesChart"></canvas>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Allocate Budget Form -->
             <div class="lg:col-span-1">

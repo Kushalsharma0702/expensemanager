@@ -345,3 +345,223 @@ function showMessage(message, type) {
         messageDiv.className = 'fixed bottom-4 right-4 max-w-sm';
     }, 5000);
 }
+
+let systemAnalyticsChart, adminComparisonChart, activityTrendChart;
+
+async function loadSystemAnalytics() {
+    try {
+        const response = await fetch('/ai/superadmin/system-analytics', { credentials: 'include' });
+        if (response.ok) {
+            const data = await response.json();
+            updateSystemAnalyticsDisplay(data);
+            updateAdminComparisonChart(data.admin_performance);
+            updateActivityTrendChart(data.activity_trends);
+            displaySystemInsights(data.insights);
+        }
+    } catch (error) {
+        console.error('Error loading system analytics:', error);
+    }
+}
+
+function updateSystemAnalyticsDisplay(data) {
+    // Update KPI cards
+    document.getElementById('systemTotalTransactions').textContent = data.system_metrics.total_transactions;
+    document.getElementById('systemTotalAdmins').textContent = data.system_metrics.total_admins;
+    document.getElementById('systemAvgUtilization').textContent = `${data.system_metrics.avg_utilization}%`;
+
+    // Update approval rates chart
+    updateApprovalRatesChart(data.approval_rates);
+}
+
+function updateApprovalRatesChart(approvalData) {
+    const ctx = document.getElementById('approvalRatesChart');
+    if (!ctx) return;
+
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(approvalData).map(status => status.charAt(0).toUpperCase() + status.slice(1)),
+            datasets: [{
+                data: Object.values(approvalData).map(data => data.percentage),
+                backgroundColor: ['#10B981', '#F59E0B', '#EF4444'],
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'System-wide Approval Rates'
+                },
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function updateAdminComparisonChart(adminData) {
+    const ctx = document.getElementById('adminComparisonChart');
+    if (!ctx) return;
+
+    if (adminComparisonChart) {
+        adminComparisonChart.destroy();
+    }
+
+    adminComparisonChart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Admin Performance',
+                data: adminData.map(admin => ({
+                    x: admin.utilization_rate,
+                    y: admin.efficiency_score,
+                    label: admin.admin_name
+                })),
+                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                borderColor: 'rgb(59, 130, 246)',
+                pointRadius: 8,
+                pointHoverRadius: 12
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Admin Performance Matrix'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const point = context.raw;
+                            return `${point.label}: Utilization ${point.x}%, Efficiency ${point.y}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Budget Utilization (%)'
+                    },
+                    min: 0,
+                    max: 100
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Efficiency Score'
+                    },
+                    min: 0,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+function updateActivityTrendChart(activityData) {
+    const ctx = document.getElementById('activityTrendChart');
+    if (!ctx) return;
+
+    if (activityTrendChart) {
+        activityTrendChart.destroy();
+    }
+
+    activityTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: activityData.map(d => new Date(d.date).toLocaleDateString()),
+            datasets: [
+                {
+                    label: 'Daily Amount (₹)',
+                    data: activityData.map(d => d.total_amount),
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Transaction Count',
+                    data: activityData.map(d => d.transaction_count),
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'System Activity Trends (Last 90 Days)'
+                }
+            },
+            scales: {
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Amount (₹)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Transaction Count'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    }
+                }
+            }
+        }
+    });
+}
+
+function displaySystemInsights(insights) {
+    const container = document.getElementById('systemInsightsContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    insights.forEach(insight => {
+        const insightCard = document.createElement('div');
+        insightCard.className = `p-4 rounded-lg border-l-4 mb-4 ${getInsightClasses(insight.type)}`;
+        
+        insightCard.innerHTML = `
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    ${getInsightIcon(insight.type)}
+                </div>
+                <div class="ml-3">
+                    <h4 class="text-sm font-medium">${insight.title}</h4>
+                    <p class="text-sm mt-1">${insight.message}</p>
+                    <p class="text-xs mt-2 opacity-75"><strong>Recommendation:</strong> ${insight.recommendation}</p>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(insightCard);
+    });
+}
+
+// Add to your existing DOMContentLoaded event
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing code ...
+    loadSystemAnalytics();
+    
+    // Refresh system analytics every 10 minutes
+    setInterval(loadSystemAnalytics, 600000);
+});

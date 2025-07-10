@@ -268,6 +268,46 @@
                 </div>
             </div>
         </div>
+
+        <!-- AI Insights Section -->
+        <div class="mb-8 bg-white rounded-xl shadow-md border border-gray-100">
+            <div class="p-6">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <i class="fas fa-brain mr-2 text-purple-600"></i>
+                    AI Insights & Analytics
+                </h2>
+                <div id="aiInsightsContainer" class="mb-6">
+                    <!-- AI insights will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- Spending Trend Chart -->
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 class="text-md font-semibold text-gray-800 mb-4">Spending Trends</h3>
+                <div class="h-64">
+                    <canvas id="spendingTrendChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Employee Performance Chart -->
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 class="text-md font-semibold text-gray-800 mb-4">Employee Performance</h3>
+                <div class="h-64">
+                    <canvas id="employeePerformanceChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Day Patterns Chart -->
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h3 class="text-md font-semibold text-gray-800 mb-4">Spending Patterns</h3>
+                <div class="h-64">
+                    <canvas id="dayPatternsChart"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
     
     <!-- Toast notification -->
