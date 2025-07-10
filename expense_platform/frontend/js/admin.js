@@ -415,7 +415,8 @@ async function loadEmployeeStats() {
         const response = await fetch('/admin/employee-stats', { credentials: 'include' });
         if (response.ok) {
             const data = await response.json();
-            updateEmployeeStats(data.employees);
+            updateEmployeeStats(data.employees);      // <-- Table
+            updateEmployeeChart(data.employees);      // <-- Chart
         }
     } catch (error) {
         console.error('Error loading employee stats:', error);
@@ -426,34 +427,141 @@ async function loadEmployeeStats() {
 function updateEmployeeStats(employees) {
     const tbody = document.getElementById('employeeStatsBody');
     if (!tbody) return;
-    
+
     tbody.innerHTML = '';
-    
-    if (employees.length === 0) {
+
+    if (!employees || employees.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="px-6 py-4 text-center text-gray-500">
-                    No employee data found
+                    No employee statistics available
                 </td>
             </tr>
         `;
         return;
     }
-    
-    employees.forEach(employee => {
+
+    employees.forEach(emp => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">${employee.name}</div>
-                <div class="text-sm text-gray-500">${employee.email}</div>
+                <div class="text-sm font-medium text-gray-900">${emp.name}</div>
+                <div class="text-sm text-gray-500">${emp.email}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${employee.total_requests}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹${employee.total_amount.toFixed(2)}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600">${employee.approved}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">${employee.pending}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600">${employee.rejected}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${emp.total_requests}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹${emp.total_amount.toFixed(2)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-700">${emp.approved}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-700">${emp.pending}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-red-700">${emp.rejected}</td>
         `;
         tbody.appendChild(row);
+    });
+}
+
+// UPDATE EMPLOYEE CHART
+function updateEmployeeChart(employees) {
+    const ctx = document.getElementById('employeeChart');
+    if (!ctx) return;
+
+    if (window.employeeChartInstance) {
+        window.employeeChartInstance.destroy();
+    }
+
+    if (!employees || employees.length === 0) {
+        ctx.parentElement.innerHTML = '<div class="text-center text-gray-500 pt-12">No employee data available</div>';
+        return;
+    }
+
+    // If all employees have zero total_amount and zero approved_amount, show message
+    if (employees.every(e => (e.total_amount || 0) === 0 && (e.approved_amount || 0) === 0)) {
+        ctx.parentElement.innerHTML = '<div class="text-center text-gray-500 pt-12">No employee spending data yet</div>';
+        return;
+    }
+
+    window.employeeChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: employees.map(e => e.name),
+            datasets: [
+                {
+                    label: 'Total Spent (₹)',
+                    data: employees.map(e => e.total_amount || 0),
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                },
+                {
+                    label: 'Approved Spent (₹)',
+                    data: employees.map(e => e.approved_amount || 0),
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)'
+                },
+                {
+                    label: 'Total Requests',
+                    data: employees.map(e => e.total_requests || 0),
+                    backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                    type: 'line',
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                title: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Amount (₹)' }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    beginAtZero: true,
+                    title: { display: true, text: 'Requests' },
+                    grid: { drawOnChartArea: false }
+                }
+            }
+        }
+    });
+}
+
+// UPDATE BUDGET CHART
+function updateBudgetChart(budget) {
+    const ctx = document.getElementById('budgetChart');
+    if (!ctx) return;
+
+    if (window.budgetChartInstance) {
+        window.budgetChartInstance.destroy();
+    }
+
+    window.budgetChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Allocated to Employees', 'Remaining with Admin', 'Spent by Employees'],
+            datasets: [{
+                data: [
+                    budget.total_spent || 0,      // Allocated to Employees
+                    budget.remaining || 0,        // Remaining with Admin
+                    budget.employee_spent || 0    // Spent by Employees
+                ],
+                backgroundColor: [
+                    'rgba(59, 130, 246, 0.8)',   // blue
+                    'rgba(16, 185, 129, 0.8)',   // green
+                    'rgba(239, 68, 68, 0.8)'     // red
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                title: { display: false }
+            }
+        }
     });
 }
 
@@ -507,12 +615,6 @@ async function loadReports() {
 function updateReportsDisplay(reportData) {
     // Implementation for reports display
     console.log('Reports loaded:', reportData);
-}
-
-// UPDATE BUDGET CHART
-function updateBudgetChart(budget) {
-    // Implementation for budget chart
-    console.log('Budget chart updated:', budget);
 }
 
 // EXPORT FUNCTIONS
