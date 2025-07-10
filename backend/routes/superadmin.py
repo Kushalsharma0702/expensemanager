@@ -255,17 +255,20 @@ def add_employee():
     data = request.get_json()
     name = data.get('name')
     email = data.get('email')
+    phone = data.get('phone')
     password = data.get('password')
-    if not all([name, email, password]):
+    created_by = data.get('created_by')  # Admin ID
+    if not all([name, email, password, phone, created_by]):
         return jsonify({'error': 'Missing fields'}), 400
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Email already exists'}), 400
     user = User(
         name=name,
         email=email,
+        phone=phone,
         password=generate_password_hash(password),
         role='employee',
-        created_by=current_user.id
+        created_by=created_by
     )
     db.session.add(user)
     db.session.commit()

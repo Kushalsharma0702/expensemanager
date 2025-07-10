@@ -321,6 +321,45 @@ document.getElementById('addClientForm').addEventListener('submit', async functi
     }
 });
 
+document.getElementById('addEmployeeForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const name = document.getElementById('employeeName').value.trim();
+    const email = document.getElementById('employeeEmail').value.trim();
+    const phone = document.getElementById('employeePhone').value.trim();
+    const adminId = document.getElementById('employeeAdmin').value;
+    const statusDiv = document.getElementById('employeeFormStatus');
+    if (!name || !email || !phone || !adminId) {
+        statusDiv.textContent = 'All fields are required';
+        statusDiv.className = 'mt-4 p-3 rounded-lg text-sm font-medium bg-red-100 text-red-800';
+        statusDiv.classList.remove('hidden');
+        return;
+    }
+    const data = { name, email, phone, password: 'password', created_by: parseInt(adminId) };
+    try {
+        const res = await fetch('/superadmin/add-employee', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+            credentials: 'include'
+        });
+        const result = await res.json();
+        if (res.ok) {
+            statusDiv.textContent = 'Employee added successfully! Default password: password';
+            statusDiv.className = 'mt-4 p-3 rounded-lg text-sm font-medium bg-green-100 text-green-800';
+            statusDiv.classList.remove('hidden');
+            this.reset();
+        } else {
+            statusDiv.textContent = result.error || 'Failed to add employee';
+            statusDiv.className = 'mt-4 p-3 rounded-lg text-sm font-medium bg-red-100 text-red-800';
+            statusDiv.classList.remove('hidden');
+        }
+    } catch {
+        statusDiv.textContent = 'Error adding employee';
+        statusDiv.className = 'mt-4 p-3 rounded-lg text-sm font-medium bg-red-100 text-red-800';
+        statusDiv.classList.remove('hidden');
+    }
+});
+
 async function handleLogout() {
     try {
         await fetch('/auth/logout', {
@@ -565,3 +604,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Refresh system analytics every 10 minutes
     setInterval(loadSystemAnalytics, 600000);
 });
+
+async function populateAdminSelect() {
+    const select = document.getElementById('employeeAdmin');
+    if (!select) return;
+    select.innerHTML = '<option value="">Choose an admin...</option>';
+    try {
+        const res = await fetch('/superadmin/admins', { credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            data.admins.forEach(admin => {
+                const option = document.createElement('option');
+                option.value = admin.id;
+                option.textContent = `${admin.name} (${admin.email})`;
+                select.appendChild(option);
+            });
+        }
+    } catch (e) {
+        // handle error
+    }
+}
+document.addEventListener('DOMContentLoaded', populateAdminSelect);
