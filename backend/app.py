@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, render_template, send_from_directory, jsonify
 from flask_cors import CORS
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
@@ -17,10 +17,10 @@ load_dotenv()
 # app = Flask(__name__, static_folder='../frontend', static_url_path='/')
 
 # ✅ After (absolute path works on all platforms)
-frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../frontend')
-app = Flask(__name__, static_folder=frontend_path, static_url_path='/')
+# frontend_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../frontend')
+# app = Flask(__name__, static_folder=frontend_path, static_url_path='/')
 
-
+app = Flask(__name__, static_folder="static", template_folder="templates")
 # Convert DATABASE_URL to SQLALCHEMY_DATABASE_URI
 if "SQLALCHEMY_DATABASE_URI" not in os.environ and "DATABASE_URL" in os.environ:
     os.environ["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
@@ -67,7 +67,7 @@ app.register_blueprint(ai_insights_bp, url_prefix='/ai')  # ADD THIS LINE
 # Serve static files (HTML, CSS, JS)
 @app.route('/')
 def serve_login():
-    return send_from_directory(app.static_folder, 'login.html')
+    return render_template('login.html')
 
 @app.route('/dashboard/<role>')
 @login_required
@@ -86,7 +86,7 @@ def serve_dashboard(role):
     }
 
     if role in dashboard_files:
-        return send_from_directory(app.static_folder, dashboard_files[role])
+        return render_template(dashboard_files[role])
     else:
         return jsonify({'error': 'Invalid role'}), 404
 
