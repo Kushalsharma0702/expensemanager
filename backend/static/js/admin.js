@@ -311,10 +311,9 @@ async function approveExpense(expenseId) {
     if (!confirm('Approve this expense?')) return;
     
     try {
-        const response = await fetch('/admin/approve', {
+        const response = await fetch(`/admin/approve-expense/${expenseId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ expense_id: expenseId }),
             credentials: 'include'
         });
         
@@ -339,10 +338,9 @@ async function rejectExpense(expenseId) {
     if (!confirm('Reject this expense?')) return;
     
     try {
-        const response = await fetch('/admin/reject', {
+        const response = await fetch(`/admin/reject-expense/${expenseId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ expense_id: expenseId }),
             credentials: 'include'
         });
         

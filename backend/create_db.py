@@ -1,18 +1,38 @@
 import os
-from app import create_app
+from flask import Flask
 from extensions import db
 from werkzeug.security import generate_password_hash
 from models import User
+from dotenv import load_dotenv
 
-app = create_app()
+load_dotenv()
+
+# Create Flask app instance (same as in app.py)
+app = Flask(__name__, static_folder="static", template_folder="templates")
+
+# Convert DATABASE_URL to SQLALCHEMY_DATABASE_URI
+if "SQLALCHEMY_DATABASE_URI" not in os.environ and "DATABASE_URL" in os.environ:
+    os.environ["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
+
+# Configure the app (same as in app.py)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-super-secret-key-here-change-this-in-production')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize extensions
+db.init_app(app)
 
 def init_db():
     with app.app_context():
         # Drop all tables using CASCADE (SQLAlchemy 2.x+)
-        with db.engine.connect() as conn:
-            conn = conn.execution_options(isolation_level="AUTOCOMMIT")
-            conn.execute(db.text("DROP SCHEMA public CASCADE;"))
-            conn.execute(db.text("CREATE SCHEMA public;"))
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(db.text('DROP SCHEMA IF EXISTS public CASCADE'))
+                conn.execute(db.text('CREATE SCHEMA public'))
+                conn.commit()
+        except Exception as e:
+            print(f"Note: Could not drop schema (this is normal for first run): {e}")
+        
         db.create_all()
         
         # Default password for all users
