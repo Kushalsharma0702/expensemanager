@@ -55,16 +55,174 @@ def get_dashboard():
         current_app.logger.error(f"Dashboard error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@admin_bp.route('/stats')
+@login_required
+def get_stats():
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        budget = Budget.query.filter_by(admin_id=current_user.id).first()
+        if not budget:
+            return jsonify({
+                'total_budget': 0,
+                'total_allocated': 0,
+                'total_spent': 0,
+                'total_remaining': 0,
+                'pending_count': 0
+            })
+
+        # Calculate total funds allocated to employees
+        total_allocated = db.session.query(
+            func.sum(EmployeeFund.allocated)
+        ).filter(EmployeeFund.admin_id == current_user.id).scalar() or Decimal('0')
+
+        # Calculate total spent by employees
+        total_spent = db.session.query(
+            func.sum(EmployeeFund.spent)
+        ).filter(EmployeeFund.admin_id == current_user.id).scalar() or Decimal('0')
+
+        pending_count = Expense.query.filter_by(admin_id=current_user.id, status='pending').count()
+
+        return jsonify({
+            'total_budget': float(budget.allocated),
+            'total_allocated': float(total_allocated),
+            'total_spent': float(total_spent),
+            'total_remaining': float(budget.remaining),
+            'pending_count': pending_count
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting stats: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @admin_bp.route('/employees')
 @login_required
 def get_employees():
     if current_user.role != 'admin':
         return jsonify({'error': 'Unauthorized'}), 403
-    
-    employees = User.query.filter_by(role='employee', created_by=current_user.id).all()
-    return jsonify({'employees': [
-        {'id': e.id, 'name': e.name, 'email': e.email} for e in employees
-    ]})
+
+    try:
+        # Get employees created by this admin with their fund info
+        employees_data = db.session.query(
+            User.id,
+            User.name,
+            User.email,
+            User.phone,
+            func.coalesce(EmployeeFund.allocated, 0).label('allocated_amount'),
+            func.coalesce(EmployeeFund.spent, 0).label('spent_amount')
+        ).outerjoin(
+            EmployeeFund, 
+            (EmployeeFund.employee_id == User.id) & (EmployeeFund.admin_id == current_user.id)
+        ).filter(
+            User.role == 'employee',
+            User.created_by == current_user.id
+        ).all()
+
+        employees = []
+        for emp in employees_data:
+            employees.append({
+                'id': emp.id,
+                'name': emp.name,
+                'email': emp.email,
+                'phone': emp.phone,
+                'allocated_amount': float(emp.allocated_amount),
+                'spent_amount': float(emp.spent_amount)
+            })
+
+        return jsonify({'employees': employees})
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting employees: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@admin_bp.route('/edit-employee/<int:employee_id>', methods=['PUT'])
+@login_required
+def edit_employee(employee_id):
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        # Check if employee exists and belongs to this admin
+        employee = User.query.filter_by(
+            id=employee_id,
+            role='employee',
+            created_by=current_user.id
+        ).first()
+
+        if not employee:
+            return jsonify({'error': 'Employee not found'}), 404
+
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('name') or not data.get('email') or not data.get('phone'):
+            return jsonify({'error': 'Name, email, and phone are required'}), 400
+
+        # Check if email is already taken by another user
+        existing_user = User.query.filter(
+            User.email == data['email'],
+            User.id != employee_id
+        ).first()
+        
+        if existing_user:
+            return jsonify({'error': 'Email already exists'}), 400
+
+        # Update employee data
+        employee.name = data['name'].strip()
+        employee.email = data['email'].strip()
+        employee.phone = data['phone'].strip()
+        
+        # Update password if provided
+        if data.get('password'):
+            employee.password_hash = generate_password_hash(data['password'])
+
+        db.session.commit()
+
+        return jsonify({'message': 'Employee updated successfully'})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating employee: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@admin_bp.route('/delete-employee/<int:employee_id>', methods=['DELETE'])
+@login_required
+def delete_employee(employee_id):
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        # Check if employee exists and belongs to this admin
+        employee = User.query.filter_by(
+            id=employee_id,
+            role='employee',
+            created_by=current_user.id
+        ).first()
+
+        if not employee:
+            return jsonify({'error': 'Employee not found'}), 404
+
+        # Delete associated data
+        # Delete employee fund allocations
+        EmployeeFund.query.filter_by(employee_id=employee_id, admin_id=current_user.id).delete()
+        
+        # Delete expenses
+        Expense.query.filter_by(employee_id=employee_id, admin_id=current_user.id).delete()
+        
+        # Delete transactions
+        Transaction.query.filter_by(employee_id=employee_id, admin_id=current_user.id).delete()
+
+        # Delete the employee
+        db.session.delete(employee)
+        db.session.commit()
+
+        return jsonify({'message': 'Employee deleted successfully'})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting employee: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @admin_bp.route('/expenses')
 @login_required
@@ -94,82 +252,133 @@ def get_expenses():
         current_app.logger.error(f"Get expenses error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
-@admin_bp.route('/approve', methods=['POST'])
+@admin_bp.route('/pending-expenses')
 @login_required
-def approve_expense():
+def get_pending_expenses():
     if current_user.role != 'admin':
         return jsonify({'error': 'Unauthorized'}), 403
-
-    data = request.get_json()
-    expense_id = data.get('expense_id')
-    if not expense_id:
-        return jsonify({'error': 'Missing expense_id'}), 400
 
     try:
-        expense = Expense.query.filter_by(id=expense_id, admin_id=current_user.id, status='pending').first()
-        if not expense:
-            return jsonify({'error': 'Expense not found or already processed'}), 404
+        pending_expenses = db.session.query(
+            Expense.id,
+            Expense.amount,
+            Expense.reason,
+            Expense.date_created,
+            User.name.label('employee_name')
+        ).join(User, Expense.employee_id == User.id).filter(
+            Expense.admin_id == current_user.id,
+            Expense.status == 'pending'
+        ).order_by(Expense.date_created.desc()).all()
 
-        # Convert to Decimal for database operations
-        expense_amount = Decimal(str(expense.amount))
+        expenses = []
+        for expense in pending_expenses:
+            expenses.append({
+                'id': expense.id,
+                'amount': float(expense.amount),
+                'reason': expense.reason,
+                'date': expense.date_created.isoformat(),
+                'employee_name': expense.employee_name
+            })
 
-        # Get employee fund
-        fund = EmployeeFund.query.filter_by(employee_id=expense.employee_id, admin_id=current_user.id).first()
-        if not fund or fund.remaining < expense_amount:
-            return jsonify({'error': 'Insufficient employee funds'}), 400
+        return jsonify({'expenses': expenses})
 
-        # FIXED: Only deduct from employee fund, NOT from admin budget
-        fund.spent += expense_amount
-        fund.remaining -= expense_amount
-
-        # Update expense status
-        expense.status = 'approved'
-        expense.reviewed_at = datetime.utcnow()
-
-        # Create transaction record
-        transaction = Transaction(
-            sender_id=current_user.id,
-            receiver_id=expense.employee_id,
-            amount=expense_amount,
-            type='expense',
-            description=f'Expense approved: {expense.reason}'
-        )
-        db.session.add(transaction)
-        db.session.commit()
-        return jsonify({'message': 'Expense approved successfully'})
     except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Approve expense error: {str(e)}")
-        return jsonify({'error': 'Failed to approve expense'}), 500
+        current_app.logger.error(f"Error getting pending expenses: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
-@admin_bp.route('/reject', methods=['POST'])
+@admin_bp.route('/approve-expense/<int:expense_id>', methods=['POST'])
 @login_required
-def reject_expense():
+def approve_expense(expense_id):
     if current_user.role != 'admin':
         return jsonify({'error': 'Unauthorized'}), 403
-    
-    data = request.get_json()
-    expense_id = data.get('expense_id')
-    if not expense_id:
-        return jsonify({'error': 'Missing expense_id'}), 400
-    
+
     try:
         expense = Expense.query.filter_by(
             id=expense_id,
             admin_id=current_user.id,
             status='pending'
         ).first()
+
         if not expense:
-            return jsonify({'error': 'Expense not found or already processed'}), 404
-        
-        expense.status = 'rejected'
-        expense.reviewed_at = datetime.utcnow()
+            return jsonify({'error': 'Expense not found'}), 404
+
+        # Check if employee has sufficient allocated funds
+        employee_fund = EmployeeFund.query.filter_by(
+            employee_id=expense.employee_id,
+            admin_id=current_user.id
+        ).first()
+
+        if not employee_fund:
+            return jsonify({'error': 'Employee has no allocated funds'}), 400
+
+        remaining_funds = employee_fund.allocated - employee_fund.spent
+        if remaining_funds < expense.amount:
+            return jsonify({'error': 'Insufficient allocated funds'}), 400
+
+        # Approve the expense
+        expense.status = 'approved'
+        expense.date_approved = datetime.utcnow()
+
+        # Update employee fund spent amount
+        employee_fund.spent += expense.amount
+
+        # Create transaction record
+        transaction = Transaction(
+            employee_id=expense.employee_id,
+            admin_id=current_user.id,
+            amount=expense.amount,
+            type='expense',
+            description=expense.reason,
+            status='approved'
+        )
+        db.session.add(transaction)
+
         db.session.commit()
-        return jsonify({'message': 'Expense rejected successfully'})
+        return jsonify({'message': 'Expense approved successfully'})
+
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Reject expense error: {str(e)}")
-        return jsonify({'error': 'Failed to reject expense'}), 500
+        current_app.logger.error(f"Error approving expense: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@admin_bp.route('/reject-expense/<int:expense_id>', methods=['POST'])
+@login_required
+def reject_expense(expense_id):
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        expense = Expense.query.filter_by(
+            id=expense_id,
+            admin_id=current_user.id,
+            status='pending'
+        ).first()
+
+        if not expense:
+            return jsonify({'error': 'Expense not found'}), 404
+
+        # Reject the expense
+        expense.status = 'rejected'
+        expense.date_approved = datetime.utcnow()
+
+        # Create transaction record
+        transaction = Transaction(
+            employee_id=expense.employee_id,
+            admin_id=current_user.id,
+            amount=expense.amount,
+            type='expense',
+            description=expense.reason,
+            status='rejected'
+        )
+        db.session.add(transaction)
+
+        db.session.commit()
+        return jsonify({'message': 'Expense rejected successfully'})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error rejecting expense: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @admin_bp.route('/allocate-fund', methods=['POST'])
 @login_required
@@ -242,10 +451,11 @@ def add_employee():
     data = request.get_json()
     name = data.get('name')
     email = data.get('email')
+    phone = data.get('phone')  # Add phone field
     password = data.get('password', 'password')
     
-    if not all([name, email]):
-        return jsonify({'error': 'Name and email are required'}), 400
+    if not all([name, email, phone]):  # Make phone required
+        return jsonify({'error': 'Name, email, and phone are required'}), 400
     
     try:
         if User.query.filter_by(email=email).first():
@@ -254,6 +464,7 @@ def add_employee():
         user = User(
             name=name,
             email=email,
+            phone=phone,  # Add phone field
             password=generate_password_hash(password),
             role='employee',
             created_by=current_user.id
@@ -354,6 +565,7 @@ def get_employee_stats():
                 'id': emp.id,
                 'name': emp.name,
                 'email': emp.email,
+                'phone': emp.phone,
                 'total_requests': expense_stats.total_requests or 0,
                 'total_amount': float(expense_stats.total_amount or 0),
                 'approved': expense_stats.approved or 0,

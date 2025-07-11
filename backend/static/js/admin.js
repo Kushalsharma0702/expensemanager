@@ -90,9 +90,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const name = document.getElementById('employeeName').value.trim();
             const email = document.getElementById('employeeEmail').value.trim();
+            const phone = document.getElementById('employeePhone').value.trim();
+            const password = document.getElementById('employeePassword').value.trim() || 'password';
             
-            if (!name || !email) {
-                showToast('Name and email are required', 'error');
+            if (!name || !email || !phone) {
+                showToast('Name, email, and phone are required', 'error');
                 return;
             }
             
@@ -100,14 +102,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const response = await fetch('/admin/add-employee', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, password: 'password' }),
+                    body: JSON.stringify({ name, email, phone, password }),
                     credentials: 'include'
                 });
                 
                 const result = await response.json();
                 
                 if (response.ok) {
-                    showToast('Employee added successfully! Default password: password', 'success');
+                    showToast(`Employee added successfully! Password: ${password}`, 'success');
                     this.reset();
                     populateExpenseEmployeeSelect();
                     populateAllocateEmployeeSelect();
@@ -433,7 +435,7 @@ function updateEmployeeStats(employees) {
     if (!employees || employees.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
                     No employee statistics available
                 </td>
             </tr>
@@ -447,12 +449,19 @@ function updateEmployeeStats(employees) {
             <td class="px-6 py-4 whitespace-nowrap">
                 <div class="text-sm font-medium text-gray-900">${emp.name}</div>
                 <div class="text-sm text-gray-500">${emp.email}</div>
+                <div class="text-sm text-gray-400">${emp.phone || 'No phone'}</div>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${emp.total_requests}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">₹${emp.total_amount.toFixed(2)}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-green-700">${emp.approved}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-yellow-700">${emp.pending}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-red-700">${emp.rejected}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <button onclick="editEmployee(${emp.id}, '${emp.name}', '${emp.email}', '${emp.phone || ''}')" 
+                        class="text-indigo-600 hover:text-indigo-900 mr-3">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+            </td>
         `;
         tbody.appendChild(row);
     });
@@ -915,4 +924,119 @@ function getInsightIcon(type) {
         'info': '<i class="fas fa-info-circle text-blue-500"></i>'
     };
     return icons[type] || icons.info;
+}
+
+// EDIT EMPLOYEE FUNCTION
+function editEmployee(employeeId, currentName, currentEmail, currentPhone) {
+    // Create modal HTML
+    const modalHTML = `
+        <div id="editEmployeeModal" class="fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0, 0, 0, 0.5);">
+            <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                    Edit Employee
+                                </h3>
+                                <div class="mt-2">
+                                    <form id="editEmployeeForm">
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                                            <input type="text" id="editEmployeeName" value="${currentName}" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">Email</label>
+                                            <input type="email" id="editEmployeeEmail" value="${currentEmail}" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">Phone</label>
+                                            <input type="tel" id="editEmployeePhone" value="${currentPhone}" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">New Password (leave blank to keep current)</label>
+                                            <input type="password" id="editEmployeePassword" placeholder="Enter new password (optional)" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="button" onclick="updateEmployee(${employeeId})" 
+                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            Update Employee
+                        </button>
+                        <button type="button" onclick="closeEditEmployeeModal()" 
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// UPDATE EMPLOYEE FUNCTION
+async function updateEmployee(employeeId) {
+    const name = document.getElementById('editEmployeeName').value.trim();
+    const email = document.getElementById('editEmployeeEmail').value.trim();
+    const phone = document.getElementById('editEmployeePhone').value.trim();
+    const password = document.getElementById('editEmployeePassword').value.trim();
+    
+    if (!name || !email || !phone) {
+        showToast('Name, email, and phone are required', 'error');
+        return;
+    }
+    
+    try {
+        const requestBody = {
+            employee_id: employeeId,
+            name: name,
+            email: email,
+            phone: phone
+        };
+        
+        if (password) {
+            requestBody.password = password;
+        }
+        
+        const response = await fetch('/admin/edit-employee', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            credentials: 'include'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showToast('Employee updated successfully!', 'success');
+            closeEditEmployeeModal();
+            loadEmployeeStats();
+            populateExpenseEmployeeSelect();
+            populateAllocateEmployeeSelect();
+        } else {
+            showToast(result.error || 'Failed to update employee', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating employee:', error);
+        showToast('Error updating employee', 'error');
+    }
+}
+
+// CLOSE EDIT EMPLOYEE MODAL
+function closeEditEmployeeModal() {
+    const modal = document.getElementById('editEmployeeModal');
+    if (modal) {
+        modal.remove();
+    }
 }

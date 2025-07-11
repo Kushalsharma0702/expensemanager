@@ -24,7 +24,7 @@
     
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div class="bg-white p-6 rounded-xl shadow-sm">
                 <div class="flex items-center">
                     <div class="p-2 bg-blue-100 rounded-lg">
@@ -35,6 +35,20 @@
                     <div class="ml-4">
                         <p class="text-sm font-medium text-gray-600">Total Allocated</p>
                         <p id="totalAllocated" class="text-2xl font-semibold text-gray-900">₹0</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-xl shadow-sm">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 rounded-lg">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Admin Allocated</p>
+                        <p id="adminAllocated" class="text-2xl font-semibold text-gray-900">₹0</p>
                     </div>
                 </div>
             </div>
@@ -194,31 +208,32 @@
             </div>
         </div>
         
-        <!-- Budget Summary Table -->
-        <div class="mt-8 bg-white rounded-xl shadow-sm overflow-hidden">
-            <div class="p-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-6">Budget Summary</h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Allocated</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spent</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage %</th>
-                            </tr>
-                        </thead>
-                        <tbody id="budgetTableBody" class="bg-white divide-y divide-gray-200"></tbody>
-                    </table>
-                </div>
+        <!-- Admin Cards View -->
+        <div class="mt-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-semibold text-gray-800">Admin Management</h2>
+                <button onclick="openAddClientModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Add Admin
+                </button>
             </div>
+            <div id="adminCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
 
         <!-- All Transactions -->
         <div class="mt-8 bg-white rounded-xl shadow-sm overflow-hidden">
             <div class="p-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-6">All Transactions</h2>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800">All Transactions</h2>
+                    <button onclick="downloadReport()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Download Report
+                    </button>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
@@ -249,6 +264,14 @@
                     <label for="clientEmail" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
                     <input type="email" id="clientEmail" name="clientEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter client email">
                 </div>
+                <div>
+                    <label for="clientPhone" class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                    <input type="tel" id="clientPhone" name="clientPhone" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter phone number">
+                </div>
+                <div>
+                    <label for="clientPassword" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="clientPassword" name="clientPassword" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter password">
+                </div>
                 <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
                     Add Client
                 </button>
@@ -263,13 +286,17 @@
                     <label for="employeeName" class="block text-sm font-medium text-gray-700 mb-2">Name</label>
                     <input type="text" id="employeeName" name="employeeName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter employee name">
                 </div>
-                 <div>
-                                <label for="employeePhone" class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                                <input type="tel" id="employeePhone" name="employeePhone" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter phone number">
-                            </div>
                 <div>
                     <label for="employeeEmail" class="block text-sm font-medium text-gray-700 mb-2">Email</label>
                     <input type="email" id="employeeEmail" name="employeeEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter employee email">
+                </div>
+                <div>
+                    <label for="employeePhone" class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                    <input type="tel" id="employeePhone" name="employeePhone" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter phone number">
+                </div>
+                <div>
+                    <label for="employeePassword" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input type="password" id="employeePassword" name="employeePassword" required class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter password">
                 </div>
                 <div>
                     <label for="employeeAdmin" class="block text-sm font-medium text-gray-700 mb-2">Assign to Admin</label>

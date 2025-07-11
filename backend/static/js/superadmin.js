@@ -1,26 +1,130 @@
-// At the top of each dashboard JS file
+// Session check - runs first
 document.addEventListener('DOMContentLoaded', async function() {
     const res = await fetch('/auth/check-session', { credentials: 'include' });
     if (res.status !== 200) {
         window.location.href = '/';
         return;
     }
-    // ...rest of your dashboard code...
-});let budgetChart;
+});
 
+let budgetChart;
+
+// Main DOMContentLoaded event - runs once
 document.addEventListener('DOMContentLoaded', function() {
     loadUserInfo();
     loadOverview();
     loadAdmins();
     loadTransactions();
     
-    document.getElementById('allocateForm').addEventListener('submit', handleAllocate);
-    // In all dashboard JS files
-document.getElementById('logoutBtn').addEventListener('click', async function() {
-    await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
-    localStorage.clear();
-    window.location.href = '/';
-});
+    // Allocate form handler
+    const allocateForm = document.getElementById('allocateForm');
+    if (allocateForm) {
+        allocateForm.addEventListener('submit', handleAllocate);
+    }
+    
+    // Logout functionality
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async function() {
+            try {
+                await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/';
+            }
+        });
+    }
+    
+    // Add Client form handler
+    const addClientForm = document.getElementById('addClientForm');
+    if (addClientForm) {
+        addClientForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('clientName').value.trim();
+            const email = document.getElementById('clientEmail').value.trim();
+            const phone = document.getElementById('clientPhone').value.trim();
+            const password = document.getElementById('clientPassword').value.trim();
+            
+            if (!name || !email || !phone || !password) {
+                showMessage('All fields are required', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/superadmin/add-client', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, phone, password }),
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Client added successfully!', 'success');
+                    this.reset();
+                    loadAdmins();
+                    loadOverview();
+                } else {
+                    showMessage(result.error || 'Failed to add client', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding client:', error);
+                showMessage('Error adding client', 'error');
+            }
+        });
+    }
+    
+    // Add Employee form handler
+    const addEmployeeForm = document.getElementById('addEmployeeForm');
+    if (addEmployeeForm) {
+        addEmployeeForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('employeeName').value.trim();
+            const email = document.getElementById('employeeEmail').value.trim();
+            const phone = document.getElementById('employeePhone').value.trim();
+            const password = document.getElementById('employeePassword').value.trim();
+            const adminId = document.getElementById('employeeAdmin').value;
+            
+            if (!name || !email || !phone || !password || !adminId) {
+                showMessage('All fields are required', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/superadmin/add-employee', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name, 
+                        email, 
+                        phone, 
+                        password, 
+                        created_by: parseInt(adminId) 
+                    }),
+                    credentials: 'include'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Employee added successfully!', 'success');
+                    this.reset();
+                } else {
+                    showMessage(result.error || 'Failed to add employee', 'error');
+                }
+            } catch (error) {
+                console.error('Error adding employee:', error);
+                showMessage('Error adding employee', 'error');
+            }
+        });
+    }
+    
+    // Populate admin selects
+    populateAdminSelect();
     
     // Refresh data every 30 seconds
     setInterval(() => {
@@ -77,7 +181,7 @@ async function loadOverview() {
             const data = await response.json();
             updateStatsCards(data.stats);
             updateBudgetChart(data.budgets);
-            updateBudgetTable(data.budgets);
+            updateAdminCards(data.budgets);
         }
     } catch (error) {
         console.error('Error loading overview:', error);
@@ -101,6 +205,7 @@ async function loadTransactions() {
 
 function updateStatsCards(stats) {
     document.getElementById('totalAllocated').textContent = `₹${stats.total_allocated.toFixed(2)}`;
+    document.getElementById('adminAllocated').textContent = `₹${stats.admin_allocated || 0}`;
     document.getElementById('totalSpent').textContent = `₹${stats.total_spent.toFixed(2)}`;
     document.getElementById('pendingRequests').textContent = stats.pending_expenses;
     document.getElementById('activeAdmins').textContent = stats.active_admins;
@@ -172,47 +277,91 @@ function updateBudgetChart(budgets) {
     });
 }
 
-function updateBudgetTable(budgets) {
-    const tbody = document.getElementById('budgetTableBody');
-    tbody.innerHTML = '';
+function updateAdminCards(budgets) {
+    const container = document.getElementById('adminCardsContainer');
+    container.innerHTML = '';
     
     if (budgets.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="5" class="px-6 py-4 text-center text-gray-500">
-                    No budget allocations found
-                </td>
-            </tr>
+        container.innerHTML = `
+            <div class="col-span-full text-center py-8">
+                <div class="text-gray-500">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No admins found</h3>
+                    <p class="mt-1 text-sm text-gray-500">Get started by adding a new admin.</p>
+                </div>
+            </div>
         `;
         return;
     }
     
     budgets.forEach(budget => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">${budget.admin_name}</div>
-                <div class="text-sm text-gray-500">${budget.admin_email}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ₹${budget.allocated.toFixed(2)}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ₹${budget.spent.toFixed(2)}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ₹${budget.remaining.toFixed(2)}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow';
+        
+        const usageColor = budget.usage_percentage > 80 ? 'bg-red-500' : 
+                          budget.usage_percentage > 60 ? 'bg-yellow-500' : 'bg-green-500';
+        
+        card.innerHTML = `
+            <div class="flex items-start justify-between">
                 <div class="flex items-center">
-                    <div class="flex-1 bg-gray-200 rounded-full h-2 mr-2">
-                        <div class="bg-blue-600 h-2 rounded-full" style="width: ${budget.usage_percentage}%"></div>
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
                     </div>
-                    <span class="text-sm text-gray-900">${budget.usage_percentage}%</span>
+                    <div class="ml-3">
+                        <h3 class="text-lg font-semibold text-gray-900">${budget.admin_name}</h3>
+                        <p class="text-sm text-gray-600">${budget.admin_email}</p>
+                        <p class="text-sm text-gray-500">${budget.admin_phone || 'No phone'}</p>
+                    </div>
                 </div>
-            </td>
+                <div class="flex space-x-2">
+                    <button onclick="editAdmin(${budget.admin_id}, '${budget.admin_name}', '${budget.admin_email}', '${budget.admin_phone || ''}')" 
+                            class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Edit Admin">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                    </button>
+                    <button onclick="openAllocateModal('${budget.admin_name}', ${budget.admin_id})" 
+                            class="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Allocate Budget">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-600">₹${budget.allocated.toFixed(0)}</div>
+                        <div class="text-xs text-gray-500">Allocated</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-red-600">₹${budget.spent.toFixed(0)}</div>
+                        <div class="text-xs text-gray-500">Spent</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600">₹${budget.remaining.toFixed(0)}</div>
+                        <div class="text-xs text-gray-500">Remaining</div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="flex items-center justify-between text-sm text-gray-600 mb-1">
+                        <span>Budget Usage</span>
+                        <span>${budget.usage_percentage}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="${usageColor} h-2 rounded-full transition-all duration-300" style="width: ${budget.usage_percentage}%"></div>
+                    </div>
+                </div>
+            </div>
         `;
-        tbody.appendChild(row);
+        
+        container.appendChild(card);
     });
 }
 
@@ -299,8 +448,10 @@ document.getElementById('addClientForm').addEventListener('submit', async functi
     e.preventDefault();
     const name = document.getElementById('clientName').value.trim();
     const email = document.getElementById('clientEmail').value.trim();
-    if (!name || !email) return showMessage('All fields required', 'error');
-    const data = { name, email, password: 'password' };
+    const phone = document.getElementById('clientPhone').value.trim();
+    const password = document.getElementById('clientPassword').value.trim();
+    if (!name || !email || !phone || !password) return showMessage('All fields required', 'error');
+    const data = { name, email, phone, password };
     try {
         const res = await fetch('/superadmin/add-client', {
             method: 'POST',
@@ -310,9 +461,10 @@ document.getElementById('addClientForm').addEventListener('submit', async functi
         });
         const result = await res.json();
         if (res.ok) {
-            showMessage('Client added! Default password: password', 'success');
+            showMessage(`Client added! Password: ${password}`, 'success');
             this.reset();
             loadAdmins();
+            loadOverview();
         } else {
             showMessage(result.error || 'Failed to add client', 'error');
         }
@@ -374,15 +526,17 @@ async function handleLogout() {
 
 function showMessage(message, type) {
     const messageDiv = document.getElementById('message');
-    messageDiv.className = `fixed bottom-4 right-4 max-w-sm p-4 rounded-lg shadow-lg ${
-        type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-    }`;
-    messageDiv.textContent = message;
-    
-    setTimeout(() => {
-        messageDiv.textContent = '';
-        messageDiv.className = 'fixed bottom-4 right-4 max-w-sm';
-    }, 5000);
+    if (messageDiv) {
+        messageDiv.className = `fixed bottom-4 right-4 max-w-sm p-4 rounded-lg shadow-lg ${
+            type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+        }`;
+        messageDiv.textContent = message;
+        messageDiv.style.display = 'block';
+        
+        setTimeout(() => {
+            messageDiv.style.display = 'none';
+        }, 5000);
+    }
 }
 
 let systemAnalyticsChart, adminComparisonChart, activityTrendChart;
@@ -625,3 +779,223 @@ async function populateAdminSelect() {
     }
 }
 document.addEventListener('DOMContentLoaded', populateAdminSelect);
+
+// EDIT ADMIN FUNCTION
+function editAdmin(adminId, currentName, currentEmail, currentPhone) {
+    // Remove any existing modal first
+    const existingModal = document.getElementById('editAdminModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Create modal HTML
+    const modalHTML = `
+        <div id="editAdminModal" class="fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0, 0, 0, 0.5);">
+            <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                    Edit Admin
+                                </h3>
+                                <div class="mt-2">
+                                    <form id="editAdminForm">
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                                            <input type="text" id="editAdminName" value="${currentName || ''}" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">Email</label>
+                                            <input type="email" id="editAdminEmail" value="${currentEmail || ''}" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">Phone</label>
+                                            <input type="tel" id="editAdminPhone" value="${currentPhone || ''}" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">New Password (leave blank to keep current)</label>
+                                            <input type="password" id="editAdminPassword" placeholder="Enter new password (optional)" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="button" onclick="updateAdmin(${adminId})" 
+                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            Update Admin
+                        </button>
+                        <button type="button" onclick="closeEditAdminModal()" 
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Add click outside to close
+    const modal = document.getElementById('editAdminModal');
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeEditAdminModal();
+        }
+    });
+}
+
+// CLOSE MODALS
+function closeEditAdminModal() {
+    const modal = document.getElementById('editAdminModal');
+    if (modal) {
+        modal.style.opacity = '0';
+        modal.style.transition = 'opacity 0.2s';
+        setTimeout(() => {
+            modal.remove();
+        }, 200);
+    }
+}
+
+// UPDATE ADMIN FUNCTION
+async function updateAdmin(adminId) {
+    const name = document.getElementById('editAdminName').value.trim();
+    const email = document.getElementById('editAdminEmail').value.trim();
+    const phone = document.getElementById('editAdminPhone').value.trim();
+    const password = document.getElementById('editAdminPassword').value.trim();
+    
+    if (!name || !email || !phone) {
+        showMessage('Name, email, and phone are required', 'error');
+        return;
+    }
+    
+    try {
+        const requestBody = {
+            admin_id: adminId,
+            name: name,
+            email: email,
+            phone: phone
+        };
+        
+        if (password) {
+            requestBody.password = password;
+        }
+        
+        const response = await fetch('/superadmin/edit-admin', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            credentials: 'include'
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showMessage('Admin updated successfully!', 'success');
+            closeEditAdminModal();
+            loadOverview();
+            loadAdmins();
+        } else {
+            showMessage(result.error || 'Failed to update admin', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating admin:', error);
+        showMessage('Error updating admin', 'error');
+    }
+}
+
+// EDIT EMPLOYEE FUNCTION (for superadmin)
+function editEmployee(employeeId, currentName, currentEmail, currentPhone) {
+    // Create modal HTML
+    const modalHTML = `
+        <div id="editEmployeeModal" class="fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0, 0, 0, 0.5);">
+            <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+                                    Edit Employee
+                                </h3>
+                                <div class="mt-2">
+                                    <form id="editEmployeeForm">
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                                            <input type="text" id="editEmployeeName" value="${currentName}" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">Email</label>
+                                            <input type="email" id="editEmployeeEmail" value="${currentEmail}" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">Phone</label>
+                                            <input type="tel" id="editEmployeePhone" value="${currentPhone}" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700">New Password (leave blank to keep current)</label>
+                                            <input type="password" id="editEmployeePassword" placeholder="Enter new password (optional)" 
+                                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="button" onclick="updateEmployeeSuper(${employeeId})" 
+                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            Update Employee
+                        </button>
+                        <button type="button" onclick="closeEditEmployeeModal()" 
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// DOWNLOAD REPORT FUNCTION
+async function downloadReport() {
+    try {
+        const response = await fetch('/superadmin/download-report', {
+            method: 'GET',
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `system_transactions_${new Date().toISOString().split('T')[0]}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            const errorData = await response.json();
+            alert(`Error: ${errorData.error}`);
+        }
+    } catch (error) {
+        console.error('Error downloading report:', error);
+        alert('Error downloading report');
+    }
+}

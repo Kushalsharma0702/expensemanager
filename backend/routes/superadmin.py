@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, current_app
 from flask_login import login_required, current_user
 from models import User, Budget, Expense, Transaction, EmployeeFund
 from extensions import db
@@ -87,6 +87,7 @@ def get_overview():
         User.id,
         User.name,
         User.email,
+        User.phone,
         Budget.allocated,
         Budget.spent,
         Budget.remaining
@@ -105,9 +106,10 @@ def get_overview():
         usage_percentage = round((spent / allocated) * 100) if allocated > 0 else 0
 
         budget_info = {
-            'id': admin.id,
+            'admin_id': admin.id,
             'admin_name': admin.name,
             'admin_email': admin.email,
+            'admin_phone': admin.phone,
             'allocated': allocated,
             'spent': spent,
             'remaining': remaining,
@@ -259,7 +261,7 @@ def add_employee():
     password = data.get('password')
     created_by = data.get('created_by')  # Admin ID
     if not all([name, email, password, phone, created_by]):
-        return jsonify({'error': 'Missing fields'}), 400
+        return jsonify({'error': 'Name, email, phone, and password are required'}), 400
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Email already exists'}), 400
     user = User(
@@ -274,6 +276,100 @@ def add_employee():
     db.session.commit()
     return jsonify({'message': 'Employee added successfully'})
 
+@superadmin_bp.route('/edit-employee', methods=['PUT'])
+@login_required
+def edit_employee():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    data = request.get_json()
+    employee_id = data.get('employee_id')
+    name = data.get('name')
+    email = data.get('email')
+    phone = data.get('phone')
+    password = data.get('password')
+    
+    if not employee_id:
+        return jsonify({'error': 'Employee ID is required'}), 400
+    
+    try:
+        # Check if employee exists
+        employee = User.query.filter_by(id=employee_id, role='employee').first()
+        if not employee:
+            return jsonify({'error': 'Employee not found'}), 404
+        
+        # Check if email is already taken by another user
+        if email and email != employee.email:
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user:
+                return jsonify({'error': 'Email already exists'}), 400
+        
+        # Update fields if provided
+        if name:
+            employee.name = name
+        if email:
+            employee.email = email
+        if phone:
+            employee.phone = phone
+        if password:
+            employee.password = generate_password_hash(password)
+        
+        employee.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({'message': 'Employee updated successfully'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Edit employee error: {str(e)}")
+        return jsonify({'error': 'Failed to update employee'}), 500
+
+@superadmin_bp.route('/edit-admin', methods=['PUT'])
+@login_required
+def edit_admin():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    data = request.get_json()
+    admin_id = data.get('admin_id')
+    name = data.get('name')
+    email = data.get('email')
+    phone = data.get('phone')
+    password = data.get('password')
+    
+    if not admin_id:
+        return jsonify({'error': 'Admin ID is required'}), 400
+    
+    try:
+        # Check if admin exists
+        admin = User.query.filter_by(id=admin_id, role='admin').first()
+        if not admin:
+            return jsonify({'error': 'Admin not found'}), 404
+        
+        # Check if email is already taken by another user
+        if email and email != admin.email:
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user:
+                return jsonify({'error': 'Email already exists'}), 400
+        
+        # Update fields if provided
+        if name:
+            admin.name = name
+        if email:
+            admin.email = email
+        if phone:
+            admin.phone = phone
+        if password:
+            admin.password = generate_password_hash(password)
+        
+        admin.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({'message': 'Admin updated successfully'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Edit admin error: {str(e)}")
+        return jsonify({'error': 'Failed to update admin'}), 500
+
 @superadmin_bp.route('/add-client', methods=['POST'])
 @login_required
 def add_client():
@@ -282,14 +378,16 @@ def add_client():
     data = request.get_json()
     name = data.get('name')
     email = data.get('email')
+    phone = data.get('phone')
     password = data.get('password', 'password')
-    if not all([name, email, password]):
-        return jsonify({'error': 'Missing fields'}), 400
+    if not all([name, email, phone, password]):
+        return jsonify({'error': 'Name, email, phone, and password are required'}), 400
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Email already exists'}), 400
     user = User(
         name=name,
         email=email,
+        phone=phone,
         password=generate_password_hash(password),
         role='admin',
         created_by=current_user.id
