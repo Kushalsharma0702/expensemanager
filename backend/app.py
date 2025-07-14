@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, send_from_directory, jsonify
+from flask import Flask, render_template, send_from_directory, jsonify, make_response
 from flask_cors import CORS
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
@@ -57,6 +57,15 @@ CORS(app,
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
+
+# Flask-Login unauthorized handler: redirect to /login for browser, JSON for API
+@login_manager.unauthorized_handler
+def unauthorized_callback():
+    from flask import request, redirect, url_for
+    if request.accept_mimetypes.accept_json:
+        return make_response(jsonify({'error': 'Unauthorized'}), 401)
+    return redirect('/login')
+
 # Register blueprints
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(superadmin_bp, url_prefix='/superadmin')
@@ -64,8 +73,10 @@ app.register_blueprint(admin_bp, url_prefix='/admin')
 app.register_blueprint(employee_bp, url_prefix='/employee')
 app.register_blueprint(ai_insights_bp, url_prefix='/ai')  # ADD THIS LINE
 
-# Serve static files (HTML, CSS, JS)
+
+# Serve login page for / and /login (GET)
 @app.route('/')
+@app.route('/login', methods=['GET'])
 def serve_login():
     return render_template('login.html')
 
@@ -138,4 +149,4 @@ if __name__ == "__main__":
             print(f"❌ Error creating database tables: {e}")
     
     # 🔥 Use Railway's port (8080) instead of 127.0.0.1
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
+    app.run(host="0.0.0.0", debug=True, port=int(os.environ.get("PORT", 8080)))

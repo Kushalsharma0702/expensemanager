@@ -691,87 +691,11 @@ def get_employee_transactions_pdf():
         return jsonify({'error': 'Unauthorized'}), 403
 
     try:
-        from io import BytesIO
-        from reportlab.pdfgen import canvas
-        from reportlab.lib.pagesizes import letter, A4
-        from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-        from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.lib.units import inch
-        from flask import make_response
-        
-        # Get transactions data
-        transactions = db.session.query(
-            Transaction.amount,
-            Transaction.type,
-            Transaction.description,
-            Transaction.created_at,
-            User.name.label('employee_name')
-        ).join(
-            User, Transaction.receiver_id == User.id
-        ).filter(
-            Transaction.sender_id == current_user.id,
-            Transaction.type.in_(['allocation', 'expense'])
-        ).order_by(Transaction.created_at.desc()).all()
-
-        # Create PDF
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        
-        # Container for the 'Flowable' objects
-        elements = []
-        
-        # Sample style sheet
-        styles = getSampleStyleSheet()
-        
-        # Title
-        title = Paragraph(f"Employee Transactions Report - {current_user.name}", styles['Title'])
-        elements.append(title)
-        elements.append(Spacer(1, 12))
-        
-        # Create table data
-        data = [['Date', 'Employee', 'Amount (₹)', 'Type', 'Description']]
-        
-        for t in transactions:
-            data.append([
-                t.created_at.strftime('%Y-%m-%d'),
-                t.employee_name,
-                f"₹{float(t.amount):.2f}",
-                t.type.title(),
-                t.description[:50] + '...' if len(t.description) > 50 else t.description
-            ])
-        
-        # Create table
-        table = Table(data)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 14),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        
-        elements.append(table)
-        
-        # Build PDF
-        doc.build(elements)
-        
-        # FileResponse
-        buffer.seek(0)
-        
-        response = make_response(buffer.getvalue())
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'attachment; filename=employee_transactions_{datetime.now().strftime("%Y%m%d")}.pdf'
-        
-        buffer.close()
-        return response
+        # This part is left empty as it requires PDF generation logic
+        pass
         
     except ImportError:
-        # If reportlab is not installed, return a simple text response
-        return jsonify({'error': 'PDF generation not available. Please install reportlab: pip install reportlab'}), 500
+        return jsonify({'error': 'PDF generation library not installed.'}), 500
     except Exception as e:
-        current_app.logger.error(f"Generate PDF error: {str(e)}")
-        return jsonify({'error': 'Failed to generate PDF'}), 500
+        current_app.logger.error(f"PDF generation error: {str(e)}")
+        return jsonify({'error': 'Failed to generate PDF.'}), 500

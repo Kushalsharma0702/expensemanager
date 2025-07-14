@@ -40,7 +40,7 @@ def init_db():
         
         # Create test users
         superadmin = User(
-            name='Super Admin',
+            name='Super supervisor',
             email='superadmin@test.com',
             phone='+1234567890',
             password=generate_password_hash(default_password),
@@ -48,40 +48,40 @@ def init_db():
         )
         
         admin1 = User(
-            name='Admin One',
-            email='admin1@test.com',
+            name='supervisor One',
+            email='supervisor1@test.com',
             phone='+1234567891',
             password=generate_password_hash(default_password),
             role='admin'
         )
         
         admin2 = User(
-            name='Admin Two',
-            email='admin2@test.com',
+            name='supervisor Two',
+            email='supervisor2@test.com',
             phone='+1234567892',
             password=generate_password_hash(default_password),
             role='admin'
         )
         
         employee1 = User(
-            name='Employee One',
-            email='employee1@test.com',
+            name='labour One',
+            email='labour1@test.com',
             phone='+1234567893',
             password=generate_password_hash(default_password),
             role='employee'
         )
         
         employee2 = User(
-            name='Employee Two',
-            email='employee2@test.com',
+            name='labour Two',
+            email='labour2@test.com',
             phone='+1234567894',
             password=generate_password_hash(default_password),
             role='employee'
         )
         
         employee3 = User(
-            name='Employee Three',
-            email='employee3@test.com',
+            name='labour Three',
+            email='labour3@test.com',
             phone='+1234567895',
             password=generate_password_hash(default_password),
             role='employee'
@@ -95,11 +95,11 @@ def init_db():
         print(f"\nAll users have the default password: {default_password}")
         print("\nTest accounts:")
         print(f"SuperAdmin: superadmin@test.com / {default_password}")
-        print(f"Admin1: admin1@test.com / {default_password}")
-        print(f"Admin2: admin2@test.com / {default_password}")
-        print(f"Employee1: employee1@test.com / {default_password}")
-        print(f"Employee2: employee2@test.com / {default_password}")
-        print(f"Employee3: employee3@test.com / {default_password}")
+        print(f"Supervisor1: supervisor1@test.com / {default_password}")
+        print(f"Supervisor2: supervisor2@test.com / {default_password}")
+        print(f"Labour1: labour1@test.com / {default_password}")
+        print(f"Labour2: labour2@test.com / {default_password}")
+        print(f"Labour3: labour3@test.com / {default_password}")
 
 if __name__ == "__main__":
     init_db()

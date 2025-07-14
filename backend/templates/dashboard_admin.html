@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Expense Management Platform</title>
+    <title>Supervisor Dashboard - Expense Management Platform</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -98,11 +98,11 @@
                 </div>
             </div>
             
-            <!-- Employee Spending Chart -->
+            <!-- Labour Spending Chart -->
             <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                     <i class="fas fa-users mr-2 text-indigo-600"></i>
-                    Employee Spending
+                    Labour Spending
                 </h2>
                 <div class="h-64">
                     <canvas id="employeeChart"></canvas>
@@ -121,7 +121,7 @@
                     <table class="w-full">
                         <thead>
                             <tr class="bg-gray-50">
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Labour</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -139,16 +139,16 @@
             <div class="lg:col-span-1">
                 <!-- Form Section -->
                 <div class="space-y-8">
-                    <!-- Add Expense for Employee -->
+                    <!-- Add Expense for Labour -->
                     <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
                         <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                             <i class="fas fa-plus-circle mr-2 text-indigo-600"></i>
-                            Add Expense for Employee
+                            Add Expense for Labour
                         </h2>
                         <div id="expenseFormStatus" class="mb-4 hidden p-3 rounded-lg text-sm font-medium"></div>
                         <form id="addExpenseForm" class="space-y-4">
                             <div>
-                                <label for="expenseEmployeeSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Employee</label>
+                                <label for="expenseEmployeeSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Labour</label>
                                 <select id="expenseEmployeeSelect" name="expenseEmployeeSelect" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                                     <option value="">Loading...</option>
                                 </select>
@@ -167,11 +167,11 @@
                         </form>
                     </div>
 
-                    <!-- Add New Employee Card -->
+                    <!-- Add New Labour Card -->
                     <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
                         <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                             <i class="fas fa-user-plus mr-2 text-indigo-600"></i>
-                            Add New Employee
+                            Add New Labour
                         </h2>
                         <div id="employeeFormStatus" class="mb-4 hidden p-3 rounded-lg text-sm font-medium"></div>
                         <form id="addEmployeeForm" class="space-y-4">
@@ -192,17 +192,17 @@
                                 <input type="password" id="employeePassword" name="employeePassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter password (leave blank for default)">
                             </div>
                             <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center">
-                                <i class="fas fa-user-plus mr-2"></i> Add Employee
+                                <i class="fas fa-user-plus mr-2"></i> Add Labour
                             </button>
                         </form>
                     </div>
 
-                    <!-- Allocate Funds to Employee Card -->
+                    <!-- Allocate Funds to Labour Card -->
                     <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 mb-8">
-                        <h2 class="text-lg font-semibold text-gray-800 mb-4">Allocate Funds to Employee</h2>
+                        <h2 class="text-lg font-semibold text-gray-800 mb-4">Allocate Funds to Labour</h2>
                         <form id="allocateFundForm" class="space-y-4">
                             <div>
-                                <label for="allocateEmployeeSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Employee</label>
+                                <label for="allocateEmployeeSelect" class="block text-sm font-medium text-gray-700 mb-2">Select Labour</label>
                                 <select id="allocateEmployeeSelect" name="allocateEmployeeSelect" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                                     <option value="">Loading...</option>
                                 </select>
@@ -220,18 +220,18 @@
             </div>
 
             <div class="lg:col-span-2">
-                <!-- Employee Statistics Table -->
+                <!-- Labour Statistics Table -->
                 <div class="mb-8 bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
                     <div class="p-6">
                         <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                             <i class="fas fa-chart-line mr-2 text-indigo-600"></i>
-                            Employee Statistics
+                            Labour Statistics
                         </h2>
                         <div class="overflow-x-auto">
                             <table class="w-full">
                                 <thead>
                                     <tr class="bg-gray-50">
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Labour</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Requests</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved</th>
@@ -246,13 +246,13 @@
                     </div>
                 </div>
 
-                <!-- Employee Transactions Table -->
+                <!-- Labour Transactions Table -->
                 <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
                     <div class="p-6">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="text-lg font-semibold text-gray-800 flex items-center">
                                 <i class="fas fa-exchange-alt mr-2 text-indigo-600"></i>
-                                Employee Transactions
+                                Labour Transactions
                             </h2>
                             <button id="downloadTransactionsPdf" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center">
                                 <i class="fas fa-file-pdf mr-2"></i> Download PDF
@@ -264,7 +264,7 @@
                                 <thead>
                                     <tr class="bg-gray-50">
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Labour</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
@@ -301,9 +301,9 @@
                 </div>
             </div>
             
-            <!-- Employee Performance Chart -->
+            <!-- Labour Performance Chart -->
             <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
-                <h3 class="text-md font-semibold text-gray-800 mb-4">Employee Performance</h3>
+                <h3 class="text-md font-semibold text-gray-800 mb-4">Labour Performance</h3>
                 <div class="h-64">
                     <canvas id="employeePerformanceChart"></canvas>
                 </div>
@@ -337,6 +337,7 @@
     
     <!-- ONLY TOAST FUNCTIONS HERE - NO EVENT LISTENERS -->
     <script>
+        
         // Session check - runs first
 document.addEventListener('DOMContentLoaded', async function() {
     const res = await fetch('/auth/check-session', { credentials: 'include' });
@@ -448,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const result = await response.json();
                 
                 if (response.ok) {
-                    showToast(`Employee added successfully! Password: ${password}`, 'success');
+                    showToast(`Labour added successfully! Password: ${password}`, 'success');
                     this.reset();
                     populateExpenseEmployeeSelect();
                     populateAllocateEmployeeSelect();
@@ -885,11 +886,11 @@ function updateBudgetChart(budget) {
     window.budgetChartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Allocated to Employees', 'Remaining with Admin', 'Spent by Employees'],
+            labels: ['Allocated to Employees', 'Remaining with Supervisor', 'Spent by Employees'],
             datasets: [{
                 data: [
                     budget.total_spent || 0,      // Allocated to Employees
-                    budget.remaining || 0,        // Remaining with Admin
+                    budget.remaining || 0,        // Remaining with Supervisor
                     budget.employee_spent || 0    // Spent by Employees
                 ],
                 backgroundColor: [
@@ -1149,7 +1150,7 @@ function updateEmployeePerformanceChart(employeeData) {
             plugins: {
                 title: {
                     display: true,
-                    text: 'Employee Performance Analysis'
+                    text: 'Labour Performance Analysis'
                 }
             },
             scales: {
@@ -1274,7 +1275,7 @@ function editEmployee(employeeId, currentName, currentEmail, currentPhone) {
                         <div class="sm:flex sm:items-start">
                             <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                                 <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-                                    Edit Employee
+                                    Edit Labour
                                 </h3>
                                 <div class="mt-2">
                                     <form id="editEmployeeForm">
@@ -1306,7 +1307,7 @@ function editEmployee(employeeId, currentName, currentEmail, currentPhone) {
                     <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                         <button type="button" onclick="updateEmployee(${employeeId})" 
                                 class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
-                            Update Employee
+                            Update Labour
                         </button>
                         <button type="button" onclick="closeEditEmployeeModal()" 
                                 class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
@@ -1356,7 +1357,7 @@ async function updateEmployee(employeeId) {
         const result = await response.json();
         
         if (response.ok) {
-            showToast('Employee updated successfully!', 'success');
+            showToast('Labour updated successfully!', 'success');
             closeEditEmployeeModal();
             loadEmployeeStats();
             populateExpenseEmployeeSelect();

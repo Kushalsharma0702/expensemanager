@@ -1,3 +1,16 @@
+
+# Place this route after auth_bp is defined
+
+# Place this route at the end of the file after auth_bp is defined
+
+# ...existing code...
+
+
+# ...existing code...
+
+# Place this route at the end of the file after all other routes
+
+
 from flask import Blueprint, request, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
@@ -48,6 +61,7 @@ def logout():
     
     return jsonify({'message': 'Logged out successfully'})
 
+
 @auth_bp.route('/me')
 @login_required
 def get_current_user():
@@ -73,3 +87,4 @@ def check_session():
         })
     else:
         return jsonify({'authenticated': False}), 401
+
