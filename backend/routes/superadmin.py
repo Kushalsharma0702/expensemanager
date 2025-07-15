@@ -4,66 +4,106 @@ from models import User, Budget, Expense, Transaction, EmployeeFund
 from extensions import db
 from sqlalchemy import func, case
 from sqlalchemy.orm import aliased
-from decimal import Decimal  # ADD THIS IMPORT
+from decimal import Decimal
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash
+import csv
+from io import StringIO
+from sqlalchemy import or_ # Import or_ for filtering
 
 superadmin_bp = Blueprint('superadmin', __name__)
-@superadmin_bp.route('/dashboard-stats', methods=['GET'])
+
+@superadmin_bp.route('/overview')
 @login_required
-def get_superadmin_dashboard_stats():
+def get_superadmin_overview():
     if current_user.role != 'superadmin':
         return jsonify({'error': 'Unauthorized'}), 403
-
     try:
-        # Total Budget Allocated (across all admins)
-        total_budget_allocated = db.session.query(func.sum(Budget.total_budget)).scalar() or Decimal('0')
-
-        # Total Remaining Budget (across all admins)
-        total_remaining_budget = db.session.query(func.sum(Budget.remaining)).scalar() or Decimal('0')
-
-        # Total Spent (across all admins)
-        # This considers approved expenses and allocations from admins to employees
-        total_spent = db.session.query(func.sum(Transaction.amount)).filter(
-            Transaction.type.in_(['expense', 'allocation_to_employee']) # Assuming you have a type for employee allocations
-        ).scalar() or Decimal('0')
-
-
-        # You might want to refine 'total_spent' calculation based on your Transaction types
-        # For example, if you want total money moved out of the system or approved expenses.
-        # Let's consider total approved expenses as a primary "spent" metric for now.
-        total_approved_expenses = db.session.query(func.sum(Expense.amount)).filter(
-            Expense.status == 'approved'
-        ).scalar() or Decimal('0')
-
-        # Total Admins
         total_admins = User.query.filter_by(role='admin').count()
-
-        # Total Employees
         total_employees = User.query.filter_by(role='employee').count()
+        total_superadmins = User.query.filter_by(role='superadmin').count()
+        total_users = User.query.count()
 
-        # Total Pending Expenses (for all admins/employees)
-        total_pending_expenses = Expense.query.filter_by(status='pending').count()
+        total_budget_allocated = db.session.query(func.sum(Budget.total_budget)).scalar() or Decimal('0.00')
+        total_budget_spent = db.session.query(func.sum(Budget.total_spent)).scalar() or Decimal('0.00')
+        
+        # Calculate total expenses across all employees and admins
+        total_expenses_overall = db.session.query(func.sum(Expense.amount))\
+            .filter(Expense.status == 'approved').scalar() or Decimal('0.00')
 
-        # Aggregate employee funds (total allocated, total spent by employees)
-        total_employee_fund_allocated = db.session.query(func.sum(EmployeeFund.allocated)).scalar() or Decimal('0')
-        total_employee_fund_spent = db.session.query(func.sum(EmployeeFund.spent)).scalar() or Decimal('0')
+        # Get top 5 employees by expense amount
+        top_employees = db.session.query(
+            User.name,
+            func.sum(Expense.amount).label('total_spent')
+        ).join(Expense, User.id == Expense.employee_id)\
+        .filter(Expense.status == 'approved')\
+        .group_by(User.name)\
+        .order_by(func.sum(Expense.amount).desc())\
+        .limit(5).all()
+
+        top_employees_data = [{'name': name, 'total_spent': float(total_spent)} for name, total_spent in top_employees]
+
+        # Get overall transaction types distribution
+        transaction_type_distribution = db.session.query(
+            Transaction.type,
+            func.count(Transaction.id)
+        ).group_by(Transaction.type).all()
+
+        transaction_type_data = {t_type: count for t_type, count in transaction_type_distribution}
 
 
         return jsonify({
-            'total_budget_allocated': float(total_budget_allocated),
-            'total_remaining_budget': float(total_remaining_budget),
-            'total_approved_expenses': float(total_approved_expenses),
+            'total_users': total_users,
+            'total_superadmins': total_superadmins,
             'total_admins': total_admins,
             'total_employees': total_employees,
-            'total_pending_expenses': total_pending_expenses,
-            'total_employee_fund_allocated': float(total_employee_fund_allocated),
-            'total_employee_fund_spent': float(total_employee_fund_spent)
+            'total_budget_allocated': float(total_budget_allocated),
+            'total_budget_spent': float(total_budget_spent),
+            'total_expenses_overall': float(total_expenses_overall),
+            'top_employees_by_expense': top_employees_data,
+            'transaction_type_distribution': transaction_type_data
         })
-
     except Exception as e:
-        current_app.logger.error(f"Error fetching superadmin dashboard stats: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        current_app.logger.error(f"Error fetching superadmin overview: {e}")
+        return jsonify({'error': 'Failed to fetch overview data'}), 500
+
+@superadmin_bp.route('/users')
+@login_required
+def get_users():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    users = User.query.all()
+    user_list = []
+    for user in users:
+        user_list.append({
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'phone': user.phone,
+            'role': user.role,
+            'is_active': user.is_active,
+            'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else None
+        })
+    return jsonify({'users': user_list})
+
+@superadmin_bp.route('/all-users')
+@login_required
+def get_all_users():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    users = User.query.all()
+    user_list = []
+    for user in users:
+        user_list.append({
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'phone': user.phone,
+            'role': user.role,
+            'is_active': user.is_active,
+            'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else None
+        })
+    return jsonify({'users': user_list})
 
 @superadmin_bp.route('/admins')
 @login_required
@@ -72,11 +112,124 @@ def get_admins():
         return jsonify({'error': 'Unauthorized'}), 403
     
     admins = User.query.filter_by(role='admin').all()
-    return jsonify({
-        'admins': [{'id': admin.id, 'name': admin.name, 'email': admin.email} for admin in admins]
-    })
+    admin_list = []
+    for admin in admins:
+        budget = Budget.query.filter_by(admin_id=admin.id).first()
+        admin_list.append({
+            'id': admin.id,
+            'name': admin.name,
+            'email': admin.email,
+            'phone': admin.phone,
+            'is_active': admin.is_active,
+            'created_at': admin.created_at.strftime('%Y-%m-%d %H:%M:%S') if admin.created_at else None,
+            'total_budget': float(budget.total_budget) if budget else 0.00,
+            'total_spent': float(budget.total_spent) if budget else 0.00,
+            'remaining': float(budget.remaining) if budget else 0.00
+        })
+    return jsonify({'admins': admin_list})
 
-@superadmin_bp.route('/allocate', methods=['POST'])
+@superadmin_bp.route('/employees')
+@login_required
+def get_employees():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    employees = User.query.filter_by(role='employee').all()
+    employee_list = []
+    for employee in employees:
+        employee_list.append({
+            'id': employee.id,
+            'name': employee.name,
+            'email': employee.email,
+            'phone': employee.phone,
+            'is_active': employee.is_active,
+            'created_at': employee.created_at.strftime('%Y-%m-%d %H:%M:%S') if employee.created_at else None
+        })
+    return jsonify({'employees': employee_list})
+
+@superadmin_bp.route('/add-user', methods=['POST'])
+@login_required
+def add_user():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+    phone = data.get('phone')
+    password = data.get('password')
+    role = data.get('role')
+
+    if not all([name, email, password, role]):
+        return jsonify({'error': 'Missing required fields'}), 400
+    if role not in ['admin', 'employee', 'superadmin']:
+        return jsonify({'error': 'Invalid role specified'}), 400
+    
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'User with this email already exists'}), 409
+    
+    try:
+        new_user = User(
+            name=name,
+            email=email,
+            phone=phone,
+            password=generate_password_hash(password),
+            role=role,
+            created_by=current_user.id, # Set created_by for new users
+            is_active=True
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        # If an admin is added, create an empty budget for them
+        if role == 'admin':
+            new_budget = Budget(admin_id=new_user.id, total_budget=Decimal('0.00'), total_spent=Decimal('0.00'), remaining=Decimal('0.00'))
+            db.session.add(new_budget)
+            db.session.commit()
+        
+        return jsonify({'message': f'{role.capitalize()} added successfully', 'user': {'id': new_user.id, 'name': new_user.name, 'email': new_user.email, 'role': new_user.role}}), 201
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error adding user: {e}")
+        return jsonify({'error': 'Failed to add user'}), 500
+
+@superadmin_bp.route('/update-user/<int:user_id>', methods=['PUT'])
+@login_required
+def update_user(user_id):
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.get_json()
+    try:
+        if 'name' in data:
+            user.name = data['name']
+        if 'email' in data:
+            if User.query.filter(User.email == data['email'], User.id != user_id).first():
+                return jsonify({'error': 'Email already in use by another user'}), 409
+            user.email = data['email']
+        if 'phone' in data:
+            user.phone = data['phone']
+        if 'role' in data:
+            if data['role'] not in ['admin', 'employee', 'superadmin']:
+                return jsonify({'error': 'Invalid role specified'}), 400
+            user.role = data['role']
+        if 'password' in data and data['password']:
+            user.password = generate_password_hash(data['password'])
+        if 'is_active' in data:
+            user.is_active = bool(data['is_active'])
+
+        user.updated_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({'message': 'User updated successfully', 'user': {'id': user.id, 'name': user.name, 'email': user.email, 'role': user.role}}), 200
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating user: {e}")
+        return jsonify({'error': 'Failed to update user'}), 500
+
+@superadmin_bp.route('/allocate-budget', methods=['POST'])
 @login_required
 def allocate_budget():
     if current_user.role != 'superadmin':
@@ -86,526 +239,172 @@ def allocate_budget():
     admin_id = data.get('admin_id')
     amount = data.get('amount')
     
-    if not admin_id or not amount:
+    if not all([admin_id, amount]):
         return jsonify({'error': 'Missing required fields'}), 400
     
     try:
-        # CRITICAL FIX: Convert to Decimal
-        amount_decimal = Decimal(str(amount))
+        amount = Decimal(str(amount))
+        if amount <= 0:
+            return jsonify({'error': 'Amount must be positive'}), 400
         
         admin = User.query.filter_by(id=admin_id, role='admin').first()
         if not admin:
             return jsonify({'error': 'Admin not found'}), 404
         
-        # Check if budget already exists for this admin
-        existing_budget = Budget.query.filter_by(admin_id=admin_id).first()
-        
-        if existing_budget:
-            # Add to existing budget
-            existing_budget.allocated += amount_decimal
-            existing_budget.remaining += amount_decimal
-        else:
-            # Create new budget - FIXED: Set remaining = allocated
-            budget = Budget(
-                admin_id=admin_id, 
-                allocated=amount_decimal,
-                spent=Decimal('0'),
-                remaining=amount_decimal
-            )
+        budget = Budget.query.filter_by(admin_id=admin_id).first()
+        if not budget:
+            budget = Budget(admin_id=admin_id, total_budget=Decimal('0.00'), total_spent=Decimal('0.00'), remaining=Decimal('0.00'))
             db.session.add(budget)
+            db.session.commit() # Commit to get an ID for the new budget if it was just created
         
-        # Create transaction record
+        budget.total_budget += amount
+        budget.remaining += amount
+        budget.updated_at = datetime.utcnow()
+
+        # Record transaction for budget allocation
         transaction = Transaction(
-            sender_id=current_user.id,
+            sender_id=current_user.id, # Superadmin is the sender
             receiver_id=admin_id,
-            amount=amount_decimal,
             type='allocation',
-            description=f'Budget allocation to {admin.name}'
+            amount=amount,
+            description=f"Budget allocation to {admin.name} (Admin)",
+            # site_name='N/A' # Site name might not be relevant for direct budget allocations from superadmin
         )
         db.session.add(transaction)
         
         db.session.commit()
-        # Return updated dashboard stats so frontend can refresh
-        # (fetch latest budget/overview after allocation)
-        # Optionally, you can call get_overview() directly here
-        from flask import url_for
-        overview_url = url_for('superadmin.get_overview')
-        # Fetch updated stats
-        try:
-            with current_app.test_request_context(overview_url):
-                resp = get_overview()
-                if hasattr(resp, 'json'):
-                    stats = resp.json
-                else:
-                    stats = resp.get_json()
-        except Exception:
-            stats = None
-        return jsonify({'message': 'Budget allocated successfully', 'stats': stats})
+        
+        return jsonify({'message': f'Budget of {amount} allocated to {admin.name} successfully'}), 200
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Allocate budget error: {str(e)}")
+        current_app.logger.error(f"Error allocating budget: {e}")
         return jsonify({'error': 'Failed to allocate budget'}), 500
-
-@superadmin_bp.route('/overview')
-@login_required
-def get_overview():
-    if current_user.role != 'superadmin':
-        return jsonify({'error': 'Unauthorized'}), 403
-
-    # LEFT OUTER JOIN to include all admins, even those without budgets
-    admins = db.session.query(
-        User.id,
-        User.name,
-        User.email,
-        User.phone,
-        User.is_active,
-        Budget.allocated,
-        Budget.spent,
-        Budget.remaining
-    ).outerjoin(Budget, User.id == Budget.admin_id).filter(
-        User.role == 'admin'
-    ).all()
-
-    employees = db.session.query(
-        User.id,
-        User.name,
-        User.email,
-        User.is_active,
-        User.created_by
-    ).filter(User.role == 'employee').all()
-
-    # Admins summary
-    admins_overview = []
-    total_allocated = 0
-    total_spent = 0
-    for admin in admins:
-        allocated = float(admin.allocated or 0)
-        spent = float(admin.spent or 0)
-        admins_overview.append({
-            'id': admin.id,
-            'name': admin.name,
-            'email': admin.email,
-            'allocated': allocated,
-            'spent': spent,
-            'is_active': admin.is_active
-        })
-        total_allocated += allocated
-        total_spent += spent
-
-    # Employees summary
-    employees_overview = []
-    admin_id_to_name = {a.id: a.name for a in admins}
-    for emp in employees:
-        employees_overview.append({
-            'id': emp.id,
-            'name': emp.name,
-            'email': emp.email,
-            'admin_name': admin_id_to_name.get(emp.created_by, None),
-            'is_active': emp.is_active
-        })
-
-    # Get active admins count (admins with allocated budget)
-    active_admins = Budget.query.filter(Budget.allocated > 0).count()
-
-    return jsonify({
-        'total_allocated': total_allocated,
-        'total_spent': total_spent,
-        'remaining_funds': total_allocated - total_spent,
-        'active_admins': active_admins,
-        'admins_overview': admins_overview,
-        'employees_overview': employees_overview
-    })
 
 @superadmin_bp.route('/transactions')
 @login_required
-def get_all_transactions():
+def get_transactions():
     if current_user.role != 'superadmin':
         return jsonify({'error': 'Unauthorized'}), 403
-    
-    # Get all transactions with user details
-    transactions = db.session.query(
-        Transaction.id,
-        Transaction.amount,
-        Transaction.type,
-        Transaction.description,
-        Transaction.timestamp,
-        User.name.label('sender_name'),
-        User.email.label('sender_email')
-    ).join(User, Transaction.sender_id == User.id).order_by(Transaction.timestamp.desc()).limit(100).all()
-    
-    transaction_data = []
-    
-    # Process transactions
-    for trans in transactions:
-        # Get receiver details
-        receiver_query = db.session.query(Transaction, User).join(
-            User, Transaction.receiver_id == User.id
-        ).filter(Transaction.id == trans.id).first()
-        
-        receiver_name = receiver_query[1].name if receiver_query else 'Unknown'
-        
-        transaction_data.append({
-            'id': trans.id,
-            'timestamp': trans.timestamp,
-            'sender_name': trans.sender_name,
-            'receiver_name': receiver_name,
-            'amount': float(trans.amount),
-            'type': trans.type,
-            'reason': trans.description or ('Budget Allocation' if trans.type == 'allocation' else 'Expense Payment')
-        })
-    
-    return jsonify({'transactions': transaction_data})
-
-@superadmin_bp.route('/reports')
-@login_required
-def get_reports():
-    if current_user.role != 'superadmin':
-        return jsonify({'error': 'Unauthorized'}), 403
-    
-    # Get date range (default to last 30 days)
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=30)
-    
-    # Get all transactions
-    transactions = db.session.query(
-        Transaction.id,
-        Transaction.amount,
-        Transaction.type,
-        Transaction.description,
-        Transaction.timestamp,
-        User.name.label('sender_name'),
-        User.email.label('sender_email')
-    ).join(User, Transaction.sender_id == User.id).filter(
-        Transaction.timestamp >= start_date
-    ).order_by(Transaction.timestamp.desc()).all()
-    
-    # Get total allocations today
-    today_allocations = db.session.query(
-        func.sum(Transaction.amount)
-    ).filter(
-        Transaction.type == 'allocation',
-        func.date(Transaction.timestamp) == datetime.now().date()
-    ).scalar() or 0
-
-    # Get total expenses today
-    today_expenses = db.session.query(
-        func.sum(Transaction.amount)
-    ).filter(
-        Transaction.type == 'expense',
-        func.date(Transaction.timestamp) == datetime.now().date()
-    ).scalar() or 0
-
-    # Get monthly summary (only valid enum values)
-    monthly_summary = db.session.query(
-        func.extract('month', Transaction.timestamp).label('month'),
-        func.extract('year', Transaction.timestamp).label('year'),
-        func.sum(case((Transaction.type == 'allocation', Transaction.amount), else_=0)).label('total_allocations'),
-        func.sum(case((Transaction.type == 'expense', Transaction.amount), else_=0)).label('total_expenses')
-    ).filter(
-        Transaction.timestamp >= start_date,
-        Transaction.type.in_(['allocation', 'expense', 'refund'])
-    ).group_by(
-        func.extract('month', Transaction.timestamp),
-        func.extract('year', Transaction.timestamp)
-    ).all()
-    
-    return jsonify({
-        'today_summary': {
-            'allocations': float(today_allocations),
-            'expenses': float(today_expenses)
-        },
-        'transactions': [{
-            'id': t.id,
-            'sender_name': t.sender_name,
-            'sender_email': t.sender_email,
-            'amount': float(t.amount),
-            'type': t.type,
-            'description': t.description,
-            'date': t.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-        } for t in transactions],
-        'monthly_summary': [{
-            'month': int(m.month),
-            'year': int(m.year),
-            'total_allocations': float(m.total_allocations),
-            'total_expenses': float(m.total_expenses)
-        } for m in monthly_summary]
-    })
-
-
-
-@superadmin_bp.route('/add-employee', methods=['POST'])
-@login_required
-def add_employee():
-    if current_user.role != 'superadmin':
-        return jsonify({'error': 'Unauthorized'}), 403
-
-    data = request.get_json()
-    name = data.get('name')
-    email = data.get('email')
-    phone = data.get('phone')
-    password = data.get('password')
-    initial_fund = data.get('initial_fund')
-
-    # Validate required fields
-    if not all([name, email, password]):
-        return jsonify({'error': 'Name, email, and password are required'}), 400
-
-    # Check if email already exists
-    if User.query.filter_by(email=email).first():
-        return jsonify({'error': 'Email already exists'}), 400
-
-    # Get the latest created supervisor (admin)
-    supervisor = User.query.filter_by(role='admin').order_by(User.created_at.desc()).first()
-    if not supervisor:
-        return jsonify({'error': 'No supervisor (admin) found. Please create one first.'}), 400
 
     try:
-        user = User(
-            name=name,
-            email=email,
-            phone=phone,
-            password=generate_password_hash(password),
-            role='employee',
-            created_by=supervisor.id
-        )
-        db.session.add(user)
-        db.session.flush()  # To get user.id
+        # Aliases for clarity in joins
+        Sender = aliased(User)
+        Receiver = aliased(User)
 
-        # Optional: Allocate initial fund if provided
-        if initial_fund:
-            fund = Decimal(str(initial_fund))
-            emp_fund = EmployeeFund(
-                employee_id=user.id,
-                admin_id=supervisor.id,  # ✅ Required to satisfy NOT NULL constraint
-                allocated=fund,
-                spent=Decimal('0'),
-                remaining=fund
-            )
-            db.session.add(emp_fund)
-        
+        transactions = db.session.query(
+            Transaction,
+            Sender.name.label('sender_name'),
+            Sender.email.label('sender_email'),
+            Receiver.name.label('receiver_name'),
+            Receiver.email.label('receiver_email')
+        ).outerjoin(Sender, Transaction.sender_id == Sender.id)\
+        .outerjoin(Receiver, Transaction.receiver_id == Receiver.id)\
+        .order_by(Transaction.timestamp.desc()).all()
 
-        db.session.commit()
-        return jsonify({'message': 'Employee added successfully'})
-
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Add employee error: {str(e)}")
-        return jsonify({'error': 'Failed to add employee'}), 500
-
-@superadmin_bp.route('/edit-employee', methods=['PUT'])
-@login_required
-def edit_employee():
-    if current_user.role != 'superadmin':
-        return jsonify({'error': 'Unauthorized'}), 403
-
-    data = request.get_json()
-    email = data.get('email')
-
-    if not email:
-        return jsonify({'error': 'Email is required'}), 400
-
-    employee = User.query.filter_by(email=email, role='employee').first()
-    if not employee:
-        return jsonify({'error': 'Employee not found'}), 404
-
-    try:
-        # Update basic details
-        employee.name = data.get('name', employee.name)
-        employee.phone = data.get('phone', employee.phone)
-        password = data.get('password')
-        if password:
-            employee.password = generate_password_hash(password)
-
-        # Update status
-        status = data.get('status')
-        if status:
-            employee.is_active = True if status == 'active' else False
-
-        employee.updated_at = datetime.utcnow()
-
-        # Update fund if provided
-        initial_fund = data.get('initial_fund')
-        if initial_fund is not None:
-            fund = Decimal(str(initial_fund))
-            emp_fund = EmployeeFund.query.filter_by(employee_id=employee.id).first()
-
-            if emp_fund:
-                diff = fund - emp_fund.allocated
-                emp_fund.allocated = fund
-                emp_fund.remaining += diff
-                emp_fund.updated_at = datetime.utcnow()
-            else:
-                emp_fund = EmployeeFund(
-                    employee_id=employee.id,
-                    admin_id=employee.created_by,
-                    allocated=fund,
-                    spent=Decimal('0'),
-                    remaining=fund,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow()
-                )
-                db.session.add(emp_fund)
-
-        db.session.commit()
-
-        return jsonify({'message': 'Employee updated successfully'}), 200
-
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Edit employee error: {str(e)}")
-        return jsonify({'error': 'Failed to update employee'}), 500
-
-
-
-@superadmin_bp.route('/add-client', methods=['POST'])
-@login_required
-def add_client():
-    if current_user.role != 'superadmin':
-        return jsonify({'error': 'Unauthorized'}), 403
-    
-    data = request.get_json()
-    name = data.get('name')
-    email = data.get('email')
-    phone = data.get('phone')
-    password = data.get('password')
-    initial_fund = data.get('initial_fund')  # NEW FIELD
-    
-    if not all([name, email, password]):
-        return jsonify({'error': 'Name, email, and password are required'}), 400
-    
-    if User.query.filter_by(email=email).first():
-        return jsonify({'error': 'Email already exists'}), 400
-    
-    user = User(
-        name=name,
-        email=email,
-        phone=phone,
-        password=generate_password_hash(password),
-        role='admin',
-        created_by=current_user.id
-    )
-    db.session.add(user)
-    db.session.flush()  # To get user.id
-
-    # Create initial budget if provided
-    if initial_fund:
-        fund = Decimal(str(initial_fund))
-        budget = Budget(
-            admin_id=user.id,
-            allocated=fund,
-            spent=Decimal('0'),
-            remaining=fund
-        )
-        db.session.add(budget)
-
-    db.session.commit()
-    return jsonify({'message': 'Supervisor (Admin) added successfully'})
-
-
-@superadmin_bp.route('/employees')
-@login_required
-def get_employees():
-    if current_user.role != 'superadmin':
-        return jsonify({'error': 'Unauthorized'}), 403
-    
-    try:
-        # Get all employees with their admin info and fund details
-        admin_user = aliased(User)
-        
-        employees_data = db.session.query(
-            User.id,
-            User.name,
-            User.email,
-            User.phone,
-            User.is_active,
-            User.created_at,
-            User.last_login.label('last_activity'),
-            User.created_by.label('admin_id'),
-            # Admin info
-            func.coalesce(admin_user.name, 'No Admin').label('admin_name'),
-            func.coalesce(admin_user.email, 'No Email').label('admin_email'),
-            # Fund info
-            func.coalesce(EmployeeFund.allocated, 0).label('allocated_amount'),
-            func.coalesce(EmployeeFund.spent, 0).label('spent_amount'),
-            # Expense counts
-            func.count(case((Expense.status == 'approved', 1))).label('approved_expenses'),
-            func.count(case((Expense.status == 'pending', 1))).label('pending_expenses'),
-            func.count(Expense.id).label('total_expenses')
-        ).outerjoin(
-            admin_user, User.created_by == admin_user.id
-        ).outerjoin(
-            EmployeeFund, EmployeeFund.employee_id == User.id
-        ).outerjoin(
-            Expense, Expense.employee_id == User.id
-        ).filter(
-            User.role == 'employee'
-        ).group_by(
-            User.id, User.name, User.email, User.phone, User.is_active, 
-            User.created_at, User.last_login, User.created_by,
-            admin_user.name, admin_user.email,
-            EmployeeFund.allocated, EmployeeFund.spent
-        ).all()
-
-        employees = []
-        for emp in employees_data:
-            employees.append({
-                'id': emp.id,
-                'name': emp.name,
-                'email': emp.email,
-                'phone': emp.phone,
-                'status': 'active' if emp.is_active else 'inactive',
-                'admin_id': emp.admin_id,
-                'admin_name': emp.admin_name,
-                'admin_email': emp.admin_email,
-                'allocated_amount': float(emp.allocated_amount),
-                'spent_amount': float(emp.spent_amount),
-                'approved_expenses': emp.approved_expenses,
-                'pending_expenses': emp.pending_expenses,
-                'total_expenses': emp.total_expenses,
-                'last_activity': emp.last_activity.isoformat() if emp.last_activity else None,
-                'created_at': emp.created_at.isoformat() if emp.created_at else None
+        transaction_list = []
+        for transaction, sender_name, sender_email, receiver_name, receiver_email in transactions:
+            transaction_list.append({
+                'id': transaction.id,
+                'timestamp': transaction.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                'type': transaction.type,
+                'amount': float(transaction.amount),
+                'description': transaction.description,
+                'sender': {'id': transaction.sender_id, 'name': sender_name, 'email': sender_email},
+                'receiver': {'id': transaction.receiver_id, 'name': receiver_name, 'email': receiver_email},
+                'expense_id': transaction.expense_id,
+                'site_name': transaction.site_name
             })
+        return jsonify({'transactions': transaction_list})
+    except Exception as e:
+        current_app.logger.error(f"Error fetching transactions: {e}")
+        return jsonify({'error': 'Failed to fetch transactions'}), 500
 
-        return jsonify({'employees': employees})
+@superadmin_bp.route('/export-transactions-csv')
+@login_required
+def export_transactions_csv():
+    if current_user.role != 'superadmin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    try:
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+
+        start_date = datetime.min
+        end_date = datetime.max
+
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1) # Include end day
+
+        Sender = aliased(User)
+        Receiver = aliased(User)
+
+        transactions = db.session.query(
+            Transaction,
+            Sender.name.label('sender_name'),
+            Sender.email.label('sender_email'),
+            Receiver.name.label('receiver_name'),
+            Receiver.email.label('receiver_email')
+        ).outerjoin(Sender, Transaction.sender_id == Sender.id)\
+        .outerjoin(Receiver, Transaction.receiver_id == Receiver.id)\
+        .filter(
+            Transaction.timestamp >= start_date,
+            Transaction.timestamp < end_date
+        ).order_by(Transaction.timestamp.asc()).all()
+
+        si = StringIO()
+        cw = csv.writer(si)
+
+        # CSV Header
+        cw.writerow(['Transaction ID', 'Timestamp', 'Type', 'Amount', 'Description', 'Sender Name', 'Sender Email', 'Receiver Name', 'Receiver Email', 'Site Name', 'Expense ID'])
+
+        for transaction, sender_name, sender_email, receiver_name, receiver_email in transactions:
+            cw.writerow([
+                transaction.id,
+                transaction.timestamp.isoformat(),
+                transaction.type,
+                str(transaction.amount),
+                transaction.description,
+                sender_name,
+                sender_email,
+                receiver_name,
+                receiver_email,
+                transaction.site_name,
+                transaction.expense_id
+            ])
+
+        output = make_response(si.getvalue())
+        output.headers["Content-Disposition"] = f"attachment; filename=transactions_{start_date_str}_to_{end_date_str}.csv"
+        output.headers["Content-type"] = "text/csv"
+        return output
 
     except Exception as e:
-        current_app.logger.error(f"Error getting employees: {str(e)}")
-        return jsonify({'error': 'Failed to fetch employees'}), 500
+        current_app.logger.error(f"Error exporting transactions CSV: {e}")
+        return jsonify({'error': 'Failed to generate CSV report'}), 500
 
-@superadmin_bp.route('/employee/<int:employee_id>/toggle-status', methods=['POST'])
+@superadmin_bp.route('/user/<int:user_id>/toggle-status', methods=['POST'])
 @login_required
-def toggle_employee_status(employee_id):
+def toggle_user_status(user_id):
     if current_user.role != 'superadmin':
         return jsonify({'error': 'Unauthorized'}), 403
     
     try:
-        data = request.get_json()
-        new_status = data.get('status')
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
         
-        if new_status not in ['active', 'inactive']:
-            return jsonify({'error': 'Invalid status. Must be active or inactive'}), 400
-        
-        # Find the employee
-        employee = User.query.filter_by(id=employee_id, role='employee').first()
-        if not employee:
-            return jsonify({'error': 'Employee not found'}), 404
-        
-        # Update the is_active status
-        employee.is_active = (new_status == 'active')
-        employee.updated_at = datetime.utcnow()
-        
-        # If deactivating, you might want to handle cleanup here
-        if new_status == 'inactive':
-            # Mark for deletion or handle deactivation logic
-            # For now, we'll just change the status
-            pass
-        
+        # Superadmin cannot deactivate themselves
+        if user.id == current_user.id:
+            return jsonify({'error': 'Superadmin cannot deactivate their own account via this endpoint'}), 400
+
+        user.is_active = not user.is_active
+        user.updated_at = datetime.utcnow()
         db.session.commit()
         
-        action = 'activated' if new_status == 'active' else 'deactivated'
-        return jsonify({'message': f'Employee {action} successfully'})
+        action = 'activated' if user.is_active else 'deactivated'
+        return jsonify({'message': f'User {user.name} ({user.role}) {action} successfully', 'is_active': user.is_active})
         
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error toggling employee status: {str(e)}")
-        return jsonify({'error': 'Failed to update employee status'}), 500
+        current_app.logger.error(f"Error toggling user status: {str(e)}")
+        return jsonify({'error': 'Failed to toggle user status'}), 500

@@ -25,6 +25,10 @@ class User(UserMixin, db.Model):
     employee_funds = db.relationship('EmployeeFund', foreign_keys='EmployeeFund.employee_id', backref='employee', lazy=True)
     admin_funds = db.relationship('EmployeeFund', foreign_keys='EmployeeFund.admin_id', backref='admin_user', lazy=True)
     
+    # NEW: Relationships for transactions, using back_populates
+    sent_transactions = db.relationship('Transaction', foreign_keys='Transaction.sender_id', back_populates='sender')
+    received_transactions = db.relationship('Transaction', foreign_keys='Transaction.receiver_id', back_populates='receiver')
+    
     # Flask-Login required methods
     def get_id(self):
         return str(self.id)
@@ -53,16 +57,22 @@ class User(UserMixin, db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
+    def __repr__(self):
+        return f"<User {self.email} ({self.role})>"
+
 class Budget(db.Model):
     __tablename__ = 'budgets'
     
     id = db.Column(db.Integer, primary_key=True)
-    admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    allocated = db.Column(db.Numeric(15, 2), default=0, nullable=False)
-    spent = db.Column(db.Numeric(15, 2), default=0, nullable=False)
-    remaining = db.Column(db.Numeric(15, 2), default=0, nullable=False)
+    admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False, index=True)
+    total_budget = db.Column(db.Numeric(15, 2), nullable=False, default=0.00)
+    total_spent = db.Column(db.Numeric(15, 2), nullable=False, default=0.00)
+    remaining = db.Column(db.Numeric(15, 2), nullable=False, default=0.00)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Budget for Admin {self.admin_id}: {self.remaining}>"
 
 class EmployeeFund(db.Model):
     __tablename__ = 'employee_funds'
@@ -70,11 +80,18 @@ class EmployeeFund(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    allocated = db.Column(db.Numeric(15, 2), default=0, nullable=False)
-    spent = db.Column(db.Numeric(15, 2), default=0, nullable=False)
-    remaining = db.Column(db.Numeric(15, 2), default=0, nullable=False)
+    amount_allocated = db.Column(db.Numeric(15, 2), nullable=False, default=0.00)
+    amount_spent = db.Column(db.Numeric(15, 2), nullable=False, default=0.00)
+    remaining_balance = db.Column(db.Numeric(15, 2), nullable=False, default=0.00)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('employee_id', 'admin_id', name='_employee_admin_uc'),
+    )
+
+    def __repr__(self):
+        return f"<EmployeeFund Employee {self.employee_id} from Admin {self.admin_id}: {self.remaining_balance}>"
 
 class Expense(db.Model):
     __tablename__ = 'expenses'
@@ -82,20 +99,23 @@ class Expense(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
     amount = db.Column(db.Numeric(15, 2), nullable=False)
-    reason = db.Column(db.Text, nullable=False)  # <-- Add this line
-    status = db.Column(db.Enum('pending', 'approved', 'rejected', name='expense_status'), 
-                      default='pending', nullable=False, index=True)
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
-    reviewed_at = db.Column(db.DateTime, nullable=True)
-    reviewer_comments = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    employee = db.relationship('User', foreign_keys=[employee_id], backref='submitted_expenses')
-    admin_user = db.relationship('User', foreign_keys=[admin_id], backref='reviewed_expenses')
+    status = db.Column(db.Enum('pending', 'approved', 'rejected', name='expense_status'), default='pending', nullable=False, index=True)
+    document_path = db.Column(db.String(500), nullable=True) # Storing relative path or filename
+    site_name = db.Column(db.String(255), nullable=True, index=True) # For identifying the site/project
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True) # Use for tracking review time
+    approved_at = db.Column(db.DateTime, nullable=True) # Specific timestamp for approval
 
+    def __repr__(self):
+        return f"<Expense {self.id} by {self.employee_id} Status: {self.status}>"
+
+    # Remove the following line, as it's incorrectly placed here:
+    # expense = db.relationship('Expense', backref='transactions')
+
+    # expense = db.relationship('Expense', backref='transactions')
 class Transaction(db.Model):
     __tablename__ = 'transactions'
     
@@ -108,13 +128,14 @@ class Transaction(db.Model):
     description = db.Column(db.Text, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    site_name = db.Column(db.String(100), nullable=True)
     
-    # Relationships
-    sender = db.relationship('User', foreign_keys=[sender_id], backref='sent_transactions')
-    receiver = db.relationship('User', foreign_keys=[receiver_id], backref='received_transactions')
+    # Relationships - UPDATED to use back_populates
+    sender = db.relationship('User', foreign_keys=[sender_id], back_populates='sent_transactions')
+    receiver = db.relationship('User', foreign_keys=[receiver_id], back_populates='received_transactions')
     expense = db.relationship('Expense', backref='transactions')
-
 # Add composite indexes for better query performance
-Index('idx_employee_funds_composite', EmployeeFund.employee_id, EmployeeFund.admin_id)
-Index('idx_expenses_composite', Expense.employee_id, Expense.status)
-Index('idx_transactions_composite', Transaction.sender_id, Transaction.type, Transaction.created_at)
+Index('idx_employee_funds_composite', EmployeeFund.employee_id, EmployeeFund.admin_id, unique=True)
+Index('idx_expenses_employee_admin', Expense.employee_id, Expense.admin_id)
+Index('idx_transactions_sender_receiver', Transaction.sender_id, Transaction.receiver_id)
+Index('idx_transactions_type_timestamp', Transaction.type, Transaction.timestamp)
