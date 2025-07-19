@@ -229,56 +229,52 @@ def update_user(user_id):
         current_app.logger.error(f"Error updating user: {e}")
         return jsonify({'error': 'Failed to update user'}), 500
 
+from datetime import datetime, timezone  # add this import at the top
+
 @superadmin_bp.route('/allocate-budget', methods=['POST'])
 @login_required
 def allocate_budget():
     if current_user.role != 'superadmin':
         return jsonify({'error': 'Unauthorized'}), 403
-    
+
     data = request.get_json()
     admin_id = data.get('admin_id')
     amount = data.get('amount')
-    
-    if not all([admin_id, amount]):
-        return jsonify({'error': 'Missing required fields'}), 400
-    
-    try:
-        amount = Decimal(str(amount))
-        if amount <= 0:
-            return jsonify({'error': 'Amount must be positive'}), 400
-        
-        admin = User.query.filter_by(id=admin_id, role='admin').first()
-        if not admin:
-            return jsonify({'error': 'Admin not found'}), 404
-        
-        budget = Budget.query.filter_by(admin_id=admin_id).first()
-        if not budget:
-            budget = Budget(admin_id=admin_id, total_budget=Decimal('0.00'), total_spent=Decimal('0.00'), remaining=Decimal('0.00'))
-            db.session.add(budget)
-            db.session.commit() # Commit to get an ID for the new budget if it was just created
-        
-        budget.total_budget += amount
-        budget.remaining += amount
-        budget.updated_at = datetime.utcnow()
+    site_name = data.get('site_name')  # ✅ new field
 
-        # Record transaction for budget allocation
-        transaction = Transaction(
-            sender_id=current_user.id, # Superadmin is the sender
-            receiver_id=admin_id,
-            type='allocation',
-            amount=amount,
-            description=f"Budget allocation to {admin.name} (Admin)",
-            # site_name='N/A' # Site name might not be relevant for direct budget allocations from superadmin
-        )
-        db.session.add(transaction)
-        
-        db.session.commit()
-        
-        return jsonify({'message': f'Budget of {amount} allocated to {admin.name} successfully'}), 200
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error allocating budget: {e}")
-        return jsonify({'error': 'Failed to allocate budget'}), 500
+    # ✅ ensure all necessary fields are present
+    if not all([admin_id, amount, site_name]):
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    admin = User.query.get(admin_id)
+    if not admin or admin.role != 'admin':
+        return jsonify({'error': 'Invalid admin ID'}), 404
+
+    # Allocate budget logic
+    budget = Budget.query.filter_by(admin_id=admin_id).first()
+    if budget:
+        budget.amount += float(amount)
+        budget.updated_at = datetime.utcnow()
+    else:
+        budget = Budget(admin_id=admin_id, amount=float(amount))
+        db.session.add(budget)
+
+    # ✅ real-time timestamp + site_name
+    transaction = Transaction(
+        sender_id=current_user.id,
+        receiver_id=admin_id,
+        type='allocation',
+        amount=float(amount),
+        description=f"Budget allocation to {admin.name} (Admin)",
+        site_name=site_name,
+        timestamp=datetime.now(timezone.utc)  # ✅ real-time UTC timestamp
+    )
+    db.session.add(transaction)
+    db.session.commit()
+
+    return jsonify({
+        'message': f'₹{amount} allocated to {admin.name} for site “{site_name}”'
+    }), 200
 
 @superadmin_bp.route('/transactions')
 @login_required
