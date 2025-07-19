@@ -6,3 +6,5 @@ __pycache__/*.py[cod]
 *.env
 
 venv.zip/
+# Ignore Tailwind CLI binary
+app/tailwind-bin/tailwindcss
