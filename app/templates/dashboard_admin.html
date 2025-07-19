@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor Dashboard - Expense Management Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+         /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 50; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            align-items: center; /* Center content vertically */
+            justify-content: center; /* Center content horizontally */
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+        }
+        .close-button {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+         /* Custom scrollbar for desktop sidebar */
+        .sidebar-scroll {
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: #cbd5e0 #f7fafc; /* thumb and track color for Firefox */
+        }
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 8px; /* width of the scrollbar */
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: #f7fafc; /* color of the track */
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e0; /* color of the scroll thumb */
+            border-radius: 20px; /* roundness of the scroll thumb */
+            border: 2px solid #f7fafc; /* creates padding around scroll thumb */
+        }
+
+        /* Hide scrollbar for mobile bottom nav on small screens */
+        @media (max-width: 767px) {
+            .hide-on-mobile {
+                display: none;
+            }
+            .bottom-nav {
+                display: flex !important;
+            }
+        }
+        .bottom-nav {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal flex flex-col min-h-screen">
+    <div id="toast" class="fixed top-5 right-5 bg-white p-4 rounded-lg shadow-lg transition-transform transform translate-x-full duration-300 ease-out z-50">
+        <p id="toastMessage" class="text-sm font-semibold"></p>
+    </div>
+
+    <div id="addEmployeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="document.getElementById('addEmployeeModal').style.display='none'">&times;</span>
+            <h2 class="text-xl font-semibold mb-4">Add New Labour</h2>
+            <form id="addEmployeeForm" class="space-y-4">
+                <div>
+                    <label for="employeeName" class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" id="employeeName" name="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="employeeEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="employeeEmail" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="employeePhone" class="block text-sm font-medium text-gray-700">Phone</label>
+                    <input type="tel" id="employeePhone" name="phone" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="employeePassword" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="employeePassword" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Add Labour</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="allocateFundModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="document.getElementById('allocateFundModal').style.display='none'">&times;</span>
+            <h2 class="text-xl font-semibold mb-4">Allocate Fund to Labour</h2>
+            <form id="allocateFundForm" class="space-y-4">
+                <div>
+                    <label for="selectEmployee" class="block text-sm font-medium text-gray-700">Select Labour</label>
+                    <select id="selectEmployee" name="employee_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </select>
+                </div>
+                <div>
+                    <label for="fundAmount" class="block text-sm font-medium text-gray-700">Amount</label>
+                    <input type="number" id="fundAmount" name="amount" required min="0.01" step="0.01" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="fundDescription" class="block text-sm font-medium text-gray-700">Description (Optional)</label>
+                    <textarea id="fundDescription" name="description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+                </div>
+                <div>
+                    <label for="fundSiteName" class="block text-sm font-medium text-gray-700">Site Name</label>
+                    <input type="text" id="fundSiteName" name="site_name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Allocate Fund</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="expenseModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="document.getElementById('expenseModal').style.display='none'">&times;</span>
+            <h2 class="text-xl font-semibold mb-4">Expense Details</h2>
+            <div id="expenseDetailsContent">
+                </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="approveExpenseBtn" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Approve</button>
+                <button id="rejectExpenseBtn" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">Reject</button>
+            </div>
+        </div>
+    </div>
+
+
+    <header class="bg-white shadow-sm py-4 px-6 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <button id="menuButton" class="text-gray-500 focus:outline-none md:hidden">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+            <h1 class="text-2xl font-bold text-gray-800">Supervisor Dashboard</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="relative">
+                <button id="profileMenuButton" class="flex items-center space-x-2 text-gray-700 hover:text-gray-900 focus:outline-none">
+                    <img src="https://via.placeholder.com/32" alt="Profile" class="w-8 h-8 rounded-full">
+                    <span id="userName" class="font-medium">Supervisor</span>
+                    <i class="fas fa-chevron-down text-sm"></i>
+                </button>
+                <div id="profileMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                    <a href="#" id="logoutBtn" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1">
+        <aside id="sidebar" class="w-64 bg-gray-800 text-white p-6 space-y-6 flex-shrink-0 hide-on-mobile sidebar-scroll">
+            <nav class="space-y-2">
+                <a href="#" data-tab="dashboard" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700 active-tab">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" data-tab="employees" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-users"></i>
+                    <span>Labour</span>
+                </a>
+                <a href="#" data-tab="pending-expenses" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-hourglass-half"></i>
+                    <span>Pending Expenses</span>
+                </a>
+                <a href="#" data-tab="fund-allocation" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-coins"></i>
+                    <span>Fund Allocation</span>
+                </a>
+                <a href="#" data-tab="expense-tracking" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-receipt"></i>
+                    <span>Expense Tracking</span>
+                </a>
+                <a href="#" data-tab="ai-insights" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-lightbulb"></i>
+                    <span>AI Insights</span>
+                </a>
+                <a href="#" data-tab="reports" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reports</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="flex-1 p-6 overflow-y-auto">
+            <div id="dashboard" class="tab-content active-tab">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Overview</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Budget</p>
+                            <p id="totalBudget" class="text-2xl font-bold text-indigo-600">₹0.00</p>
+                        </div>
+                        <i class="fas fa-wallet text-3xl text-indigo-400"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Budget Spent</p>
+                            <p id="budgetSpent" class="text-2xl font-bold text-red-600">₹0.00</p>
+                        </div>
+                        <i class="fas fa-hand-holding-usd text-3xl text-red-400"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Remaining Budget</p>
+                            <p id="remainingBudget" class="text-2xl font-bold text-green-600">₹0.00</p>
+                        </div>
+                        <i class="fas fa-piggy-bank text-3xl text-green-400"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Pending Expenses</p>
+                            <p id="pendingExpensesCount" class="text-2xl font-bold text-yellow-600">0</p>
+                        </div>
+                        <i class="fas fa-exclamation-circle text-3xl text-yellow-400"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Labour</p>
+                            <p id="totalEmployees" class="text-2xl font-bold text-blue-600">0</p>
+                        </div>
+                        <i class="fas fa-users text-3xl text-blue-400"></i>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Allocated to Labour</p>
+                            <p id="totalAllocatedToEmployees" class="text-2xl font-bold text-purple-600">₹0.00</p>
+                        </div>
+                        <i class="fas fa-coins text-3xl text-purple-400"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Spent by Labour</p>
+                            <p id="totalSpentByEmployees" class="text-2xl font-bold text-orange-600">₹0.00</p>
+                        </div>
+                        <i class="fas fa-file-invoice-dollar text-3xl text-orange-400"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Recent Pending Expenses</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Labour Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Title</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Amount</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Site Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Submitted At</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentPendingExpensesTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div id="noRecentExpenses" class="text-center text-gray-500 py-4 hidden">No recent pending expenses.</div>
+                </div>
+            </div>
+
+            <div id="employees" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Manage Labour</h2>
+                <div class="flex justify-end mb-4">
+                    <button onclick="document.getElementById('addEmployeeModal').style.display='flex'" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Add New Labour</button>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Your Labour</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Email</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Phone</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Status</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Allocated Funds</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Spent Funds</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Remaining Funds</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeesTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div id="noEmployees" class="text-center text-gray-500 py-4 hidden">No Labour found.</div>
+                </div>
+            </div>
+
+            <div id="pending-expenses" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Pending Expense Requests</h2>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Labour Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Title</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Amount</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Site Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Submitted At</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingExpensesFullTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                     <div id="noPendingExpensesFull" class="text-center text-gray-500 py-4 hidden">No pending expenses.</div>
+                </div>
+            </div>
+
+            <div id="fund-allocation" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Fund Allocation</h2>
+                <div class="flex justify-end mb-4">
+                    <button onclick="document.getElementById('allocateFundModal').style.display='flex'" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Allocate New Fund</button>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Your Budget Overview</h3>
+                    <p class="text-gray-700">Total Budget: <span id="adminTotalBudget" class="font-bold text-indigo-600">₹0.00</span></p>
+                    <p class="text-gray-700">Budget Spent: <span id="adminSpentBudget" class="font-bold text-red-600">₹0.00</span></p>
+                    <p class="text-gray-700">Remaining Budget: <span id="adminRemainingBudget" class="font-bold text-green-600">₹0.00</span></p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md mt-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Labour Fund Balances</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Labour Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Allocated</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Spent</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Remaining</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeeFundBalancesTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div id="noEmployeeFunds" class="text-center text-gray-500 py-4 hidden">No Labour funds to display.</div>
+                </div>
+            </div>
+
+            <div id="expense-tracking" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Labour Expense Tracking</h2>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">All Labour Transactions</h3>
+                     <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Date</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Labour/Supervisor</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Type</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Amount</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Description</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Site Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Document</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeeTransactionsTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div id="noEmployeeTransactions" class="text-center text-gray-500 py-4 hidden">No Labour transactions to display.</div>
+                </div>
+            </div>
+
+            <div id="ai-insights" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">AI Insights for Supervisor</h2>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Monthly Spending Trends</h3>
+                        <canvas id="spendingTrendChart"></canvas>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Labour Performance (Approval Rate)</h3>
+                        <canvas id="employeePerformanceChart"></canvas>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Expense Day Patterns</h3>
+                        <canvas id="dayPatternsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="reports" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Reports</h2>
+
+                <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Labour Transaction Report</h3>
+                    <div class="flex flex-col md:flex-row items-start md:items-end space-y-4 md:space-y-0 md:space-x-4">
+                        <div>
+                            <label for="reportStartDate" class="block text-sm font-medium text-gray-700">Start Date</label>
+                            <input type="date" id="reportStartDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </div>
+                        <div>
+                            <label for="reportEndDate" class="block text-sm font-medium text-gray-700">End Date</label>
+                            <input type="date" id="reportEndDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </div>
+                        <button id="downloadEmployeeReportBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Download CSV</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <footer class="bottom-nav fixed bottom-0 left-0 w-full bg-white shadow-lg border-t border-gray-200 flex justify-around items-center py-2 z-30">
+        <a href="#" data-tab="dashboard" class="bottom-nav-item flex flex-col items-center text-xs text-indigo-600 active-tab py-1">
+            <i class="fas fa-home text-lg mb-1"></i>
+            <span>Dashboard</span>
+        </a>
+        <a href="#" data-tab="employees" class="bottom-nav-item flex flex-col items-center text-xs text-gray-600 hover:text-indigo-600 py-1">
+            <i class="fas fa-users text-lg mb-1"></i>
+            <span>Labour</span>
+        </a>
+        <a href="#" data-tab="pending-expenses" class="bottom-nav-item flex flex-col items-center text-xs text-gray-600 hover:text-indigo-600 py-1">
+            <i class="fas fa-hourglass-half text-lg mb-1"></i>
+            <span>Pending</span>
+        </a>
+        <a href="#" data-tab="fund-allocation" class="bottom-nav-item flex flex-col items-center text-xs text-gray-600 hover:text-indigo-600 py-1">
+            <i class="fas fa-coins text-lg mb-1"></i>
+            <span>Funds</span>
+        </a>
+        <a href="#" id="mobileLogoutBtn" class="bottom-nav-item flex flex-col items-center text-xs text-gray-600 hover:text-indigo-600 py-1">
+            <i class="fas fa-sign-out-alt text-lg mb-1"></i>
+            <span>Logout</span>
+        </a>
+    </footer>
+
+    <script>
+        // Chart variables
+        let budgetChart, employeeChart; // These don't seem to be used for Chart.js charts in the current HTML. Remove if not using.
+
+        // AI Insights Charts
+        let spendingTrendChart, employeePerformanceChart, dayPatternsChart;
+
+        let allEmployees = []; // Store fetched employees for reuse
+        let currentExpenseId = null; // To store the ID of the expense currently being viewed in the modal
+
+        // Function to display toast messages
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.textContent = message;
+
+            // Set colors based on type
+            toastMessage.className = 'text-sm font-semibold'; // Reset classes
+            if (type === 'success') {
+                toastMessage.classList.add('text-green-800');
+                toast.style.backgroundColor = '#d4edda'; // Light green
+            } else if (type === 'error') {
+                toastMessage.classList.add('text-red-800');
+                toast.style.backgroundColor = '#f8d7da'; // Light red
+            } else {
+                toastMessage.classList.add('text-blue-800');
+                toast.style.backgroundColor = '#d1ecf1'; // Light blue
+            }
+
+            // Show toast
+            toast.classList.remove('translate-x-full');
+            toast.classList.add('translate-x-0');
+
+            // Hide toast after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('translate-x-0');
+                toast.classList.add('translate-x-full');
+            }, 3000);
+        }
+
+        // Fetch and display logged-in user's name
+        async function fetchUserName() {
+            try {
+                const response = await fetch('/auth/me', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('userName').textContent = data.name;
+                } else {
+                    console.error('Failed to fetch user data:', await response.json());
+                    showToast('Failed to load user name.', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+                showToast('Network error fetching user data.', 'error');
+            }
+        }
+
+        // Logout function
+        async function logout() {
+            try {
+                await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('Logout failed, redirecting anyway.', 'error');
+                window.location.href = '/';
+            }
+        }
+
+        // Function to switch tabs
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active-tab', 'bg-gray-700');
+            });
+            document.querySelectorAll('.bottom-nav-item').forEach(btn => {
+                btn.classList.remove('text-indigo-600');
+                btn.classList.add('text-gray-600');
+            });
+
+            const activeTabButton = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+            if (activeTabButton) {
+                activeTabButton.classList.add('active-tab', 'bg-gray-700');
+            }
+
+            const activeBottomNavItem = document.querySelector(`.bottom-nav-item[data-tab="${tabId}"]`);
+            if (activeBottomNavItem) {
+                activeBottomNavItem.classList.add('text-indigo-600');
+                activeBottomNavItem.classList.remove('text-gray-600');
+            }
+
+            // Fetch data specific to the switched tab
+            if (tabId === 'dashboard') {
+                fetchDashboardData();
+            } else if (tabId === 'employees') {
+                fetchEmployees();
+            } else if (tabId === 'pending-expenses') {
+                fetchPendingExpensesFullList();
+            } else if (tabId === 'fund-allocation') {
+                fetchFundAllocationData();
+            } else if (tabId === 'expense-tracking') {
+                fetchEmployeeTransactions();
+            } else if (tabId === 'ai-insights') {
+                fetchAISpendingTrends();
+                fetchAIEmployeePerformance();
+                fetchAIDayPatterns();
+            }
+        }
+
+        // Dashboard Data Fetching
+        async function fetchDashboardData() {
+            try {
+                const response = await fetch('/admin/dashboard', { credentials: 'include' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('totalBudget').textContent = `₹${data.budget.total_budget.toFixed(2)}`;
+                    document.getElementById('budgetSpent').textContent = `₹${data.budget.total_spent.toFixed(2)}`;
+                    document.getElementById('remainingBudget').textContent = `₹${data.budget.remaining.toFixed(2)}`;
+                    document.getElementById('pendingExpensesCount').textContent = data.pending_count;
+                    document.getElementById('totalEmployees').textContent = data.employees_count;
+                    document.getElementById('totalAllocatedToEmployees').textContent = `₹${data.total_allocated_to_employees.toFixed(2)}`;
+                    document.getElementById('totalSpentByEmployees').textContent = `₹${data.total_spent_by_employees.toFixed(2)}`;
+
+                    const tableBody = document.getElementById('recentPendingExpensesTableBody');
+                    tableBody.innerHTML = ''; // Clear previous data
+                    if (data.recent_pending_expenses.length > 0) {
+                        data.recent_pending_expenses.forEach(expense => {
+                            const row = tableBody.insertRow();
+                            row.innerHTML = `
+                                <td class="py-2 px-4 border-b">${expense.employee_name} (${expense.employee_email})</td>
+                                <td class="py-2 px-4 border-b">${expense.title}</td>
+                                <td class="py-2 px-4 border-b">₹${expense.amount.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">${expense.site_name || 'N/A'}</td>
+                                <td class="py-2 px-4 border-b">${expense.created_at}</td>
+                                <td class="py-2 px-4 border-b">
+                                    <button onclick="viewExpenseDetails(${expense.id})" class="text-blue-600 hover:underline">View</button>
+                                </td>
+                            `;
+                        });
+                        document.getElementById('noRecentExpenses').classList.add('hidden');
+                    } else {
+                        document.getElementById('noRecentExpenses').classList.remove('hidden');
+                    }
+
+                } else {
+                    showToast(data.error || 'Failed to fetch dashboard data', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+                showToast('Network error fetching dashboard data', 'error');
+            }
+        }
+
+        // Labour Management Data Fetching
+        async function fetchEmployees() {
+            try {
+                const response = await fetch('/admin/employees', { credentials: 'include' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    allEmployees = data.employees; // Store for fund allocation modal
+                    const tableBody = document.getElementById('employeesTableBody');
+                    tableBody.innerHTML = ''; // Clear previous data
+                    if (data.employees.length > 0) {
+                        data.employees.forEach(employee => {
+                            const row = tableBody.insertRow();
+                            row.innerHTML = `
+                                <td class="py-2 px-4 border-b">${employee.name}</td>
+                                <td class="py-2 px-4 border-b">${employee.email}</td>
+                                <td class="py-2 px-4 border-b">${employee.phone || 'N/A'}</td>
+                                <td class="py-2 px-4 border-b">${employee.is_active ? '<span class="text-green-600">Active</span>' : '<span class="text-red-600">Inactive</span>'}</td>
+                                <td class="py-2 px-4 border-b">₹${employee.allocated_funds.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">₹${employee.spent_funds.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">₹${employee.remaining_funds.toFixed(2)}</td>
+                            `;
+                        });
+                        document.getElementById('noEmployees').classList.add('hidden');
+                    } else {
+                        document.getElementById('noEmployees').classList.remove('hidden');
+                    }
+                } else {
+                    showToast(data.error || 'Failed to fetch Labour', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching Labour:', error);
+                showToast('Network error fetching Labour', 'error');
+            }
+        }
+
+        // Full Pending Expenses List Fetching
+        async function fetchPendingExpensesFullList() {
+            try {
+                const response = await fetch('/admin/dashboard', { credentials: 'include' }); // Reuse dashboard endpoint for pending expenses
+                const data = await response.json();
+
+                if (response.ok) {
+                    const tableBody = document.getElementById('pendingExpensesFullTableBody');
+                    tableBody.innerHTML = ''; // Clear previous data
+                    if (data.recent_pending_expenses.length > 0) {
+                        data.recent_pending_expenses.forEach(expense => {
+                            const row = tableBody.insertRow();
+                            row.innerHTML = `
+                                <td class="py-2 px-4 border-b">${expense.employee_name} (${expense.employee_email})</td>
+                                <td class="py-2 px-4 border-b">${expense.title}</td>
+                                <td class="py-2 px-4 border-b">₹${expense.amount.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">${expense.site_name || 'N/A'}</td>
+                                <td class="py-2 px-4 border-b">${expense.created_at}</td>
+                                <td class="py-2 px-4 border-b">
+                                    <button onclick="viewExpenseDetails(${expense.id})" class="text-blue-600 hover:underline">View</button>
+                                </td>
+                            `;
+                        });
+                        document.getElementById('noPendingExpensesFull').classList.add('hidden');
+                    } else {
+                        document.getElementById('noPendingExpensesFull').classList.remove('hidden');
+                    }
+                } else {
+                    showToast(data.error || 'Failed to fetch pending expenses', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching pending expenses:', error);
+                showToast('Network error fetching pending expenses', 'error');
+            }
+        }
+
+        // Fund Allocation Data Fetching
+        async function fetchFundAllocationData() {
+            try {
+                const response = await fetch('/admin/dashboard', { credentials: 'include' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('adminTotalBudget').textContent = `₹${data.budget.total_budget.toFixed(2)}`;
+                    document.getElementById('adminSpentBudget').textContent = `₹${data.budget.total_spent.toFixed(2)}`;
+                    document.getElementById('adminRemainingBudget').textContent = `₹${data.budget.remaining.toFixed(2)}`;
+                } else {
+                    showToast(data.error || 'Failed to fetch budget data', 'error');
+                }
+
+                // Populate employee dropdown for fund allocation
+                const selectEmployee = document.getElementById('selectEmployee');
+                selectEmployee.innerHTML = '<option value="">Select an Labour</option>';
+                allEmployees.forEach(employee => {
+                    const option = document.createElement('option');
+                    option.value = employee.id;
+                    option.textContent = `${employee.name} (${employee.email})`;
+                    selectEmployee.appendChild(option);
+                });
+
+                // Fetch and display employee fund balances
+                const employeesResponse = await fetch('/admin/employees', { credentials: 'include' });
+                const employeesData = await employeesResponse.json();
+
+                if (employeesResponse.ok) {
+                    const tableBody = document.getElementById('employeeFundBalancesTableBody');
+                    tableBody.innerHTML = '';
+                    if (employeesData.employees.length > 0) {
+                        employeesData.employees.forEach(employee => {
+                            const row = tableBody.insertRow();
+                            row.innerHTML = `
+                                <td class="py-2 px-4 border-b">${employee.name}</td>
+                                <td class="py-2 px-4 border-b">₹${employee.allocated_funds.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">₹${employee.spent_funds.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">₹${employee.remaining_funds.toFixed(2)}</td>
+                            `;
+                        });
+                        document.getElementById('noEmployeeFunds').classList.add('hidden');
+                    } else {
+                        document.getElementById('noEmployeeFunds').classList.remove('hidden');
+                    }
+                } else {
+                    showToast(employeesData.error || 'Failed to fetch employee funds', 'error');
+                }
+
+            } catch (error) {
+                console.error('Error fetching fund allocation data:', error);
+                showToast('Network error fetching fund allocation data', 'error');
+            }
+        }
+
+        // Labour Transaction Tracking Fetching
+        async function fetchEmployeeTransactions() {
+            try {
+                const response = await fetch('/admin/employee-transactions', { credentials: 'include' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    const tableBody = document.getElementById('employeeTransactionsTableBody');
+                    tableBody.innerHTML = '';
+                    if (data.transactions.length > 0) {
+                        data.transactions.forEach(transaction => {
+                            const row = tableBody.insertRow();
+                            const documentLinkHtml = transaction.document_link 
+                                ? `<a href="${transaction.document_link}" target="_blank" class="text-blue-600 hover:underline">View Document</a>`
+                                : 'N/A';
+                            
+                            // Determine display name based on transaction type
+                            let displayName = '';
+                            if (transaction.type === 'allocation') {
+                                displayName = transaction.receiver_name; // Allocated to this employee
+                            } else if (transaction.type === 'expense') {
+                                displayName = transaction.sender_name; // Submitted by this employee
+                            } else {
+                                displayName = 'N/A';
+                            }
+
+                            row.innerHTML = `
+                                <td class="py-2 px-4 border-b">${transaction.timestamp}</td>
+                                <td class="py-2 px-4 border-b">${displayName}</td>
+                                <td class="py-2 px-4 border-b">${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</td>
+                                <td class="py-2 px-4 border-b">₹${transaction.amount.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">${transaction.description}</td>
+                                <td class="py-2 px-4 border-b">${transaction.site_name || 'N/A'}</td>
+                                <td class="py-2 px-4 border-b">${documentLinkHtml}</td>
+                            `;
+                        });
+                        document.getElementById('noEmployeeTransactions').classList.add('hidden');
+                    } else {
+                        document.getElementById('noEmployeeTransactions').classList.remove('hidden');
+                    }
+                } else {
+                    showToast(data.error || 'Failed to fetch Labour transactions', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching Labour transactions:', error);
+                showToast('Network error fetching Labour transactions', 'error');
+            }
+        }
+
+
+        // AI Insights Fetching
+        async function fetchAISpendingTrends() {
+            try {
+                const response = await fetch('/ai/admin/spending-trends', { credentials: 'include' });
+                const data = await response.json();
+                if (response.ok && data.spending_trends) {
+                    renderSpendingTrendChart(data.spending_trends);
+                } else {
+                    showToast(data.error || 'Failed to fetch spending trends', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching spending trends:', error);
+                showToast('Network error fetching spending trends', 'error');
+            }
+        }
+
+        function renderSpendingTrendChart(trends) {
+            const ctx = document.getElementById('spendingTrendChart').getContext('2d');
+            if (spendingTrendChart) {
+                spendingTrendChart.destroy();
+            }
+
+            trends.sort((a, b) => new Date(a.period) - new Date(b.period)); // Ensure chronological order
+
+            spendingTrendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: trends.map(t => t.period),
+                    datasets: [{
+                        label: 'Total Spent (₹)',
+                        data: trends.map(t => t.total_spent),
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Monthly Approved Spending'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Amount (₹)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Month'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function fetchAIEmployeePerformance() {
+            try {
+                const response = await fetch('/ai/admin/employee-performance', { credentials: 'include' });
+                const data = await response.json();
+                if (response.ok && data.employee_performance) {
+                    renderEmployeePerformanceChart(data.employee_performance);
+                } else {
+                    showToast(data.error || 'Failed to fetch Labour performance', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching Labour performance:', error);
+                showToast('Network error fetching Labour performance', 'error');
+            }
+        }
+
+        function renderEmployeePerformanceChart(performanceData) {
+            const ctx = document.getElementById('employeePerformanceChart').getContext('2d');
+            if (employeePerformanceChart) {
+                employeePerformanceChart.destroy();
+            }
+
+            employeePerformanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: performanceData.map(p => p.employee_name),
+                    datasets: [{
+                        label: 'Approval Rate (%)',
+                        data: performanceData.map(p => p.approval_rate),
+                        backgroundColor: 'rgba(153, 102, 255, 0.6)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Avg. Processing Time (Hours)',
+                        data: performanceData.map(p => p.avg_processing_time_hours),
+                        backgroundColor: 'rgba(255, 159, 64, 0.6)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 1,
+                        yAxisID: 'y1' // Use a second Y-axis
+                    }
+                ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Labour Performance Metrics'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Approval Rate (%)'
+                            },
+                             max: 100
+                        },
+                        y1: { // Second Y-axis
+                            type: 'linear',
+                            position: 'right',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Processing Time (Hours)'
+                            },
+                            grid: {
+                                drawOnChartArea: false // Only draw grid lines for the first axis
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function fetchAIDayPatterns() {
+            try {
+                const response = await fetch('/ai/admin/day-patterns', { credentials: 'include' });
+                const data = await response.json();
+                if (response.ok && data.day_of_week_patterns && data.hour_of_day_patterns) {
+                    renderDayPatternsChart(data.day_of_week_patterns, data.hour_of_day_patterns);
+                } else {
+                    showToast(data.error || 'Failed to fetch day patterns', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching day patterns:', error);
+                showToast('Network error fetching day patterns', 'error');
+            }
+        }
+
+        function renderDayPatternsChart(dayPatterns, hourPatterns) {
+            const ctx = document.getElementById('dayPatternsChart').getContext('2d');
+            if (dayPatternsChart) {
+                dayPatternsChart.destroy();
+            }
+
+            // Sort day patterns by actual day of week (Sunday=0 to Saturday=6)
+            const sortedDayPatterns = dayPatterns.sort((a,b) => {
+                const dayOrder = {"Sunday":0, "Monday":1, "Tuesday":2, "Wednesday":3, "Thursday":4, "Friday":5, "Saturday":6};
+                return dayOrder[a.day] - dayOrder[b.day];
+            });
+
+            // Sort hour patterns numerically
+            const sortedHourPatterns = hourPatterns.sort((a,b) => a.hour - b.hour);
+
+            dayPatternsChart = new Chart(ctx, {
+                type: 'polarArea',
+                data: {
+                    labels: sortedDayPatterns.map(d => d.day),
+                    datasets: [{
+                        label: 'Expense Count by Day',
+                        data: sortedDayPatterns.map(d => d.count),
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.6)',
+                            'rgba(54, 162, 235, 0.6)',
+                            'rgba(255, 206, 86, 0.6)',
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(153, 102, 255, 0.6)',
+                            'rgba(255, 159, 64, 0.6)',
+                            'rgba(199, 199, 199, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(199, 199, 199, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Approved Expense Patterns by Day of Week'
+                        }
+                    },
+                    scales: {
+                        r: {
+                            pointLabels: {
+                                display: true,
+                                centerPointLabels: true,
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // Expense Details Modal
+        async function viewExpenseDetails(expenseId) {
+            currentExpenseId = expenseId; // Store for approve/reject actions
+            try {
+                const response = await fetch(`/admin/expenses/${expenseId}/details`, { credentials: 'include' });
+                const expense = await response.json();
+
+                if (!response.ok) {
+                    showToast(expense.error || 'Failed to fetch expense details', 'error');
+                    return;
+                }
+
+                const detailsContent = document.getElementById('expenseDetailsContent');
+                detailsContent.innerHTML = `
+                    <p class="mb-2"><strong>Labour:</strong> ${expense.employee_name} (${expense.employee_email})</p>
+                    <p class="mb-2"><strong>Supervisor:</strong> ${expense.admin_name}</p>
+                    <p class="mb-2"><strong>Title:</strong> ${expense.title}</p>
+                    <p class="mb-2"><strong>Description:</strong> ${expense.description || 'N/A'}</p>
+                    <p class="mb-2"><strong>Amount:</strong> ₹${expense.amount.toFixed(2)}</p>
+                    <p class="mb-2"><strong>Status:</strong> <span class="font-semibold text-${expense.status === 'approved' ? 'green' : expense.status === 'rejected' ? 'red' : 'yellow'}-600">${expense.status.charAt(0).toUpperCase() + expense.status.slice(1)}</span></p>
+                    <p class="mb-2"><strong>Site Name:</strong> ${expense.site_name || 'N/A'}</p>
+                    <p class="mb-2"><strong>Submitted At:</strong> ${expense.created_at}</p>
+                    <p class="mb-2"><strong>Reviewed At:</strong> ${expense.reviewed_at || 'N/A'}</p>
+                    <div class="mt-4">
+                        <p class="font-semibold mb-2">Supporting Document:</p>
+                        <div id="documentContainer"></div>
+                    </div>
+                `;
+
+                // Handle document display
+                const documentContainer = document.getElementById('documentContainer');
+                if (expense.document_path) {
+                    // Extract just the filename for the URL
+                    const filename = expense.document_path.split('/').pop().split('\\').pop(); // Handles both / and \\ paths
+                    const documentUrl = `/admin/documents/${filename}`;
+
+                    // Check file extension to display appropriately
+                    const fileExtension = filename.split('.').pop().toLowerCase();
+                    if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
+                        documentContainer.innerHTML = `<img src="${documentUrl}" alt="Expense Document" class="max-w-full h-auto rounded-md shadow-md">`;
+                    } else if (fileExtension === 'pdf') {
+                        documentContainer.innerHTML = `
+                            <iframe src="${documentUrl}" class="w-full h-96 border rounded-md"></iframe>
+                            <a href="${documentUrl}" target="_blank" class="mt-2 inline-block text-blue-600 hover:underline">View Full PDF in New Tab</a>
+                        `;
+                    } else {
+                        documentContainer.innerHTML = `
+                            <p class="text-gray-600">No preview available for this file type (.${fileExtension}).</p>
+                            <a href="${documentUrl}" target="_blank" class="mt-2 inline-block text-blue-600 hover:underline">Download Document</a>
+                        `;
+                    }
+                } else {
+                    documentContainer.innerHTML = '<p class="text-gray-500">No document attached.</p>';
+                }
+
+                document.getElementById('expenseModal').style.display = 'flex'; // Show modal
+
+                // Show/hide approve/reject buttons based on status
+                if (expense.status === 'pending') {
+                    document.getElementById('approveExpenseBtn').style.display = 'inline-block';
+                    document.getElementById('rejectExpenseBtn').style.display = 'inline-block';
+                } else {
+                    document.getElementById('approveExpenseBtn').style.display = 'none';
+                    document.getElementById('rejectExpenseBtn').style.display = 'none';
+                }
+
+            } catch (error) {
+                console.error('Error viewing expense details:', error);
+                showToast('Error fetching expense details for modal', 'error');
+            }
+        }
+
+
+        // Main DOMContentLoaded event - runs once
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Session check - runs first
+            const res = await fetch('/auth/check-session', { credentials: 'include' });
+            if (res.status !== 200) {
+                window.location.href = '/';
+                return;
+            }
+
+            // Initialize dashboard components after successful session check
+            fetchUserName(); // Fetch and display logged-in user's name
+            switchTab('dashboard'); // Initialize with Dashboard tab active
+
+            // LOGOUT FUNCTIONALITY (Desktop)
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', logout);
+            }
+
+            // Profile Menu Toggle (Desktop)
+            const profileMenuButton = document.getElementById('profileMenuButton');
+            const profileMenu = document.getElementById('profileMenu');
+            if (profileMenuButton && profileMenu) {
+                profileMenuButton.addEventListener('click', () => {
+                    profileMenu.classList.toggle('hidden');
+                });
+                document.addEventListener('click', (event) => {
+                    if (!profileMenuButton.contains(event.target) && !profileMenu.contains(event.target)) {
+                        profileMenu.classList.add('hidden');
+                    }
+                });
+            }
+
+            // ADD EMPLOYEE FORM HANDLER
+            const addEmployeeForm = document.getElementById('addEmployeeForm');
+            if (addEmployeeForm) {
+                addEmployeeForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(addEmployeeForm);
+                    const data = Object.fromEntries(formData.entries());
+
+                    try {
+                        const response = await fetch('/admin/add-employee', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data),
+                            credentials: 'include'
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                            showToast(result.message, 'success');
+                            addEmployeeForm.reset();
+                            document.getElementById('addEmployeeModal').style.display = 'none';
+                            fetchEmployees(); // Refresh employee list
+                            fetchDashboardData(); // Refresh dashboard counts
+                        } else {
+                            showToast(result.error || 'Failed to add Labour', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error adding Labour:', error);
+                        showToast('Error adding Labour. Please try again.', 'error');
+                    }
+                });
+            }
+
+            // ALLOCATE FUND FORM HANDLER
+            const allocateFundForm = document.getElementById('allocateFundForm');
+            if (allocateFundForm) {
+                allocateFundForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(allocateFundForm);
+                    const data = Object.fromEntries(formData.entries());
+
+                    data.amount = parseFloat(data.amount); // Convert amount to number
+
+                    try {
+                        const response = await fetch('/admin/allocate-fund', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data),
+                            credentials: 'include'
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                            showToast(result.message, 'success');
+                            allocateFundForm.reset();
+                            document.getElementById('allocateFundModal').style.display = 'none';
+                            fetchFundAllocationData(); // Refresh fund balances
+                            fetchDashboardData(); // Refresh dashboard budget
+                        } else {
+                            showToast(result.error || 'Failed to allocate fund', 'error');
+                        }
+                    } catch (error) {
+                        console.error('Error allocating fund:', error);
+                        showToast('Error allocating fund. Please try again.', 'error');
+                    }
+                });
+            }
+
+            // APPROVE EXPENSE BUTTON
+            document.getElementById('approveExpenseBtn').addEventListener('click', async () => {
+                if (!currentExpenseId) {
+                    showToast('No expense selected to approve.', 'error');
+                    return;
+                }
+
+                if (!confirm('Are you sure you want to approve this expense?')) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/admin/expenses/${currentExpenseId}/approve`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        showToast(data.message, 'success');
+                        document.getElementById('expenseModal').style.display = 'none';
+                        fetchDashboardData(); // Refresh dashboard counts and pending expenses list
+                        fetchPendingExpensesFullList(); // Refresh full list as well
+                        fetchFundAllocationData(); // Update employee fund balances
+                        fetchEmployeeTransactions(); // Update expense tracking
+                    } else {
+                        showToast(data.error || 'Failed to approve expense', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error approving expense:', error);
+                    showToast('Error approving expense', 'error');
+                }
+            });
+
+            // REJECT EXPENSE BUTTON
+            document.getElementById('rejectExpenseBtn').addEventListener('click', async () => {
+                if (!currentExpenseId) {
+                    showToast('No expense selected to reject.', 'error');
+                    return;
+                }
+
+                if (!confirm('Are you sure you want to reject this expense? The attached document will be deleted.')) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/admin/expenses/${currentExpenseId}/reject`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include'
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        showToast(data.message, 'success');
+                        document.getElementById('expenseModal').style.display = 'none';
+                        fetchDashboardData(); // Refresh dashboard counts and pending expenses list
+                        fetchPendingExpensesFullList(); // Refresh full list as well
+                    } else {
+                        showToast(data.error || 'Failed to reject expense', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error rejecting expense:', error);
+                    showToast('Error rejecting expense', 'error');
+                }
+            });
+
+            // DOWNLOAD EMPLOYEE REPORT CSV
+            document.getElementById('downloadEmployeeReportBtn').addEventListener('click', async () => {
+                const startDate = document.getElementById('reportStartDate').value;
+                const endDate = document.getElementById('reportEndDate').value;
+
+                if (!startDate || !endDate) {
+                    showToast('Please select both start and end dates for the report.', 'error');
+                    return;
+                }
+
+                const url = `/admin/export-employee-transactions-csv?start_date=${startDate}&end_date=${endDate}`;
+                try {
+                    const response = await fetch(url, { credentials: 'include' });
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = downloadUrl;
+                        a.download = `employee_transactions_${startDate}_to_${endDate}.csv`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(downloadUrl);
+                        showToast('Report downloaded successfully!', 'success');
+                    } else {
+                        const errorData = await response.json();
+                        showToast(errorData.error || 'Failed to download report', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error downloading report:', error);
+                    showToast('Network error downloading report', 'error');
+                }
+            });
+
+            // Attach event listeners for desktop sidebar
+            document.querySelectorAll('.tab-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    switchTab(e.currentTarget.dataset.tab);
+                });
+            });
+
+            // Attach event listeners for mobile bottom nav
+            document.querySelectorAll('.bottom-nav-item').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (e.currentTarget.dataset.tab) { // Check if it's a tab item
+                        switchTab(e.currentTarget.dataset.tab);
+                    } else if (e.currentTarget.id === 'mobileLogoutBtn') { // Handle logout button
+                        logout();
+                    }
+                });
+            });
+             document.getElementById('mobileLogoutBtn').addEventListener('click', logout);
+        });
+    </script>
+</body>
+</html>

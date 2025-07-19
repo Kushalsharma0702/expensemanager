@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperAdmin Dashboard - Expense Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom scrollbar for desktop sidebar */
+        .sidebar-scroll {
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: #cbd5e0 #f7fafc; /* thumb and track color for Firefox */
+        }
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 8px; /* width of the scrollbar */
+        }
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: #f7fafc; /* color of the track */
+        }
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background-color: #cbd5e0; /* color of the scroll thumb */
+            border-radius: 20px; /* roundness of the scroll thumb */
+            border: 2px solid #f7fafc; /* creates padding around scroll thumb */
+        }
+
+        /* Hide scrollbar for mobile bottom nav on small screens */
+        @media (max-width: 767px) {
+            .hide-on-mobile {
+                display: none;
+            }
+            .bottom-nav {
+                display: flex !important;
+            }
+        }
+        .bottom-nav {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal flex flex-col min-h-screen">
+    <div id="toast" class="fixed top-5 right-5 bg-white p-4 rounded-lg shadow-lg transition-transform transform translate-x-full duration-300 ease-out z-50">
+        <p id="toastMessage" class="text-sm font-semibold"></p>
+    </div>
+
+    <div id="addUserModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden z-50">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-11/12 md:w-1/2 lg:w-1/3 relative">
+            <span class="close-button absolute top-3 right-5 text-gray-500 hover:text-gray-800 text-2xl font-bold cursor-pointer" onclick="document.getElementById('addUserModal').style.display='none'">&times;</span>
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Add New User</h2>
+            <form id="addUserForm" class="space-y-4">
+                <div>
+                    <label for="userName" class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" id="userName" name="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="userEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="userEmail" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="userPhone" class="block text-sm font-medium text-gray-700">Phone</label>
+                    <input type="tel" id="userPhone" name="phone" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="userPassword" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="userPassword" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="userRole" class="block text-sm font-medium text-gray-700">Role</label>
+                    <select id="userRole" name="role" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="">Select Role</option>
+                        <option value="superadmin">Superadmin</option>
+                        <option value="admin">Supervisor</option>
+                        <option value="employee">Labour</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Add User</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="updateUserModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden z-50">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-11/12 md:w-1/2 lg:w-1/3 relative">
+            <span class="close-button absolute top-3 right-5 text-gray-500 hover:text-gray-800 text-2xl font-bold cursor-pointer" onclick="document.getElementById('updateUserModal').style.display='none'">&times;</span>
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Update User</h2>
+            <form id="updateUserForm" class="space-y-4">
+                <input type="hidden" id="updateUserId">
+                <div>
+                    <label for="updateUserName" class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" id="updateUserName" name="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="updateUserEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="updateUserEmail" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="updateUserPhone" class="block text-sm font-medium text-gray-700">Phone</label>
+                    <input type="tel" id="updateUserPhone" name="phone" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="updateUserRole" class="block text-sm font-medium text-gray-700">Role</label>
+                    <select id="updateUserRole" name="role" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="superadmin">Superadmin</option>
+                        <option value="admin">Supervisor</option>
+                        <option value="employee">Labour</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="updateUserPassword" class="block text-sm font-medium text-gray-700">New Password (leave blank to keep current)</label>
+                    <input type="password" id="updateUserPassword" name="password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Update User</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="allocateBudgetModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden z-50">
+        <div class="modal-content bg-white p-6 rounded-lg shadow-xl w-11/12 md:w-1/2 lg:w-1/3 relative">
+            <span class="close-button absolute top-3 right-5 text-gray-500 hover:text-gray-800 text-2xl font-bold cursor-pointer" onclick="document.getElementById('allocateBudgetModal').style.display='none'">&times;</span>
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Allocate Budget to Supervisor</h2>
+            <form id="allocateBudgetForm" class="space-y-4">
+                <div>
+                    <label for="selectAdmin" class="block text-sm font-medium text-gray-700">Select Supervisor</label>
+                    <select id="selectAdmin" name="admin_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </select>
+                </div>
+                <div>
+                    <label for="budgetAmount" class="block text-sm font-medium text-gray-700">Amount</label>
+                    <input type="number" id="budgetAmount" name="amount" required min="0.01" step="0.01" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Allocate Budget</button>
+            </form>
+        </div>
+    </div>
+
+    <header class="bg-white shadow-sm py-4 px-6 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <button id="menuButton" class="text-gray-500 focus:outline-none md:hidden">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+            <h1 class="text-2xl font-bold text-gray-800">SuperAdmin Dashboard</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="relative">
+                <button id="profileMenuButton" class="flex items-center space-x-2 text-gray-700 hover:text-gray-900 focus:outline-none">
+                    <img src="https://via.placeholder.com/32" alt="Profile" class="w-8 h-8 rounded-full">
+                    <span id="userName" class="font-medium">SuperAdmin</span>
+                    <i class="fas fa-chevron-down text-sm"></i>
+                </button>
+                <div id="profileMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                    <a href="#" id="logoutBtn" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1">
+        <aside id="sidebar" class="w-64 bg-gray-800 text-white p-6 space-y-6 flex-shrink-0 hide-on-mobile sidebar-scroll">
+            <nav class="space-y-2">
+                <a href="#" data-tab="dashboard" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700 active-tab">
+                    <i class="fas fa-home"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" data-tab="manage-users" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-users"></i>
+                    <span>Manage Users</span>
+                </a>
+                <a href="#" data-tab="manage-admins" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Manage Supervisor</span>
+                </a>
+                <a href="#" data-tab="manage-employees" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-user-friends"></i>
+                    <span>Manage Labour</span>
+                </a>
+                <a href="#" data-tab="budget-allocation" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-coins"></i>
+                    <span>Budget Allocation</span>
+                </a>
+                <a href="#" data-tab="transactions" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Transactions</span>
+                </a>
+                <a href="#" data-tab="reports" class="tab-btn flex items-center space-x-3 p-2 rounded-md hover:bg-gray-700">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Reports</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main class="flex-1 p-6 overflow-y-auto">
+            <div id="dashboard" class="tab-content active-tab">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Overview</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Users</p>
+                            <p id="totalUsers" class="text-2xl font-bold text-indigo-600">0</p>
+                        </div>
+                        <i class="fas fa-users text-3xl text-indigo-400"></i>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total SuperAdmins</p>
+                            <p id="totalSuperadmins" class="text-2xl font-bold text-purple-600">0</p>
+                        </div>
+                        <i class="fas fa-user-shield text-3xl text-purple-400"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Supervisor</p>
+                            <p id="totalAdmins" class="text-2xl font-bold text-blue-600">0</p>
+                        </div>
+                        <i class="fas fa-user-tie text-3xl text-blue-400"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Labour</p>
+                            <p id="totalEmployees" class="text-2xl font-bold text-green-600">0</p>
+                        </div>
+                        <i class="fas fa-user-friends text-3xl text-green-400"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Budget Allocated</p>
+                            <p id="totalBudgetAllocated" class="text-2xl font-bold text-orange-600">₹0.00</p>
+                        </div>
+                        <i class="fas fa-coins text-3xl text-orange-400"></i>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Budget Spent (Supervisor)</p>
+                            <p id="totalBudgetSpent" class="text-2xl font-bold text-red-600">₹0.00</p>
+                        </div>
+                        <i class="fas fa-chart-pie text-3xl text-red-400"></i>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-gray-500">Total Approved Expenses (Overall)</p>
+                            <p id="totalExpensesOverall" class="text-2xl font-bold text-teal-600">₹0.00</p>
+                        </div>
+                        <i class="fas fa-file-invoice-dollar text-3xl text-teal-400"></i>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Top 5 Labour by Expense</h3>
+                        <canvas id="topEmployeesChart"></canvas>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">Transaction Type Distribution</h3>
+                        <canvas id="transactionTypeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="manage-users" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Manage All Users</h2>
+                <div class="flex justify-end mb-4">
+                    <button onclick="document.getElementById('addUserModal').style.display='flex'" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Add New User</button>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Email</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Phone</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Role</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Status</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div id="noUsers" class="text-center text-gray-500 py-4 hidden">No users found.</div>
+                </div>
+            </div>
+
+            <div id="manage-admins" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Manage Supervisor</h2>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Email</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Phone</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Status</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Total Budget</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Budget Spent</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Remaining Budget</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminsTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                     <div id="noAdmins" class="text-center text-gray-500 py-4 hidden">No admins found.</div>
+                </div>
+            </div>
+
+            <div id="manage-employees" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Manage Labour</h2>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Email</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Phone</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Status</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employeesTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div id="noEmployees" class="text-center text-gray-500 py-4 hidden">No Labour found.</div>
+                </div>
+            </div>
+
+            <div id="budget-allocation" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Budget Allocation</h2>
+                 <div class="flex justify-end mb-4">
+                    <button onclick="document.getElementById('allocateBudgetModal').style.display='flex'" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">Allocate New Budget</button>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Supervisor Budget Overview</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Supervisor Name</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Total Budget</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Spent Budget</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Remaining Budget</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminBudgetTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div id="noAdminBudgets" class="text-center text-gray-500 py-4 hidden">No admin budgets to display.</div>
+                </div>
+            </div>
+
+            <div id="transactions" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">All System Transactions</h2>
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Date</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Type</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Amount</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Description</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Sender</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Receiver</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Site Name</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionsTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                    <div id="noTransactions" class="text-center text-gray-500 py-4 hidden">No transactions to display.</div>
+                </div>
+            </div>
+
+            <div id="reports" class="tab-content hidden">
+                <h2 class="text-3xl font-semibold text-gray-800 mb-6">Reports</h2>
+
+                <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Full Transaction Report</h3>
+                    <div class="flex flex-col md:flex-row items-start md:items-end space-y-4 md:space-y-0 md:space-x-4">
+                        <div>
+                            <label for="reportStartDate" class="block text-sm font-medium text-gray-700">Start Date</label>
+                            <input type="date" id="reportStartDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </div>
+                        <div>
+                            <label for="reportEndDate" class="block text-sm font-medium text-gray-700">End Date</label>
+                            <input type="date" id="reportEndDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        </div>
+                        <button id="downloadFullReportBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Download CSV</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <footer class="bottom-nav fixed bottom-0 left-0 w-full bg-white shadow-lg border-t border-gray-200 flex justify-around items-center py-2 z-30">
+        <a href="#" data-tab="dashboard" class="bottom-nav-item flex flex-col items-center text-xs text-indigo-600 active-tab py-1">
+            <i class="fas fa-home text-lg mb-1"></i>
+            <span>Dashboard</span>
+        </a>
+        <a href="#" data-tab="manage-users" class="bottom-nav-item flex flex-col items-center text-xs text-gray-600 hover:text-indigo-600 py-1">
+            <i class="fas fa-users text-lg mb-1"></i>
+            <span>Users</span>
+        </a>
+        <a href="#" data-tab="budget-allocation" class="bottom-nav-item flex flex-col items-center text-xs text-gray-600 hover:text-indigo-600 py-1">
+            <i class="fas fa-coins text-lg mb-1"></i>
+            <span>Budget</span>
+        </a>
+        <a href="#" data-tab="transactions" class="bottom-nav-item flex flex-col items-center text-xs text-gray-600 hover:text-indigo-600 py-1">
+            <i class="fas fa-exchange-alt text-lg mb-1"></i>
+            <span>Trans.</span>
+        </a>
+        <a href="#" id="mobileLogoutBtn" class="bottom-nav-item flex flex-col items-center text-xs text-gray-600 hover:text-indigo-600 py-1">
+            <i class="fas fa-sign-out-alt text-lg mb-1"></i>
+            <span>Logout</span>
+        </a>
+    </footer>
+
+    <script>
+        let topEmployeesChart, transactionTypeChart; // Chart instances
+
+        // Function to display toast messages
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.textContent = message;
+
+            // Set colors based on type
+            toastMessage.className = 'text-sm font-semibold'; // Reset classes
+            if (type === 'success') {
+                toastMessage.classList.add('text-green-800');
+                toast.style.backgroundColor = '#d4edda'; // Light green
+            } else if (type === 'error') {
+                toastMessage.classList.add('text-red-800');
+                toast.style.backgroundColor = '#f8d7da'; // Light red
+            } else {
+                toastMessage.classList.add('text-blue-800');
+                toast.style.backgroundColor = '#d1ecf1'; // Light blue
+            }
+
+            // Show toast
+            toast.classList.remove('translate-x-full');
+            toast.classList.add('translate-x-0');
+
+            // Hide toast after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('translate-x-0');
+                toast.classList.add('translate-x-full');
+            }, 3000);
+        }
+
+        // Fetch and display logged-in user's name
+        async function fetchUserName() {
+            try {
+                const response = await fetch('/auth/me', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('userName').textContent = data.name;
+                } else {
+                    console.error('Failed to fetch user data:', await response.json());
+                    showToast('Failed to load user name.', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+                showToast('Network error fetching user data.', 'error');
+            }
+        }
+
+        // Logout function
+        async function logout() {
+            try {
+                await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('Logout failed, redirecting anyway.', 'error');
+                window.location.href = '/';
+            }
+        }
+
+        // Function to switch tabs
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active-tab', 'bg-gray-700');
+            });
+            document.querySelectorAll('.bottom-nav-item').forEach(btn => {
+                btn.classList.remove('text-indigo-600');
+                btn.classList.add('text-gray-600');
+            });
+
+            const activeTabButton = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+            if (activeTabButton) {
+                activeTabButton.classList.add('active-tab', 'bg-gray-700');
+            }
+
+            const activeBottomNavItem = document.querySelector(`.bottom-nav-item[data-tab="${tabId}"]`);
+            if (activeBottomNavItem) {
+                activeBottomNavItem.classList.add('text-indigo-600');
+                activeBottomNavItem.classList.remove('text-gray-600');
+            }
+
+            // Fetch data specific to the switched tab
+            if (tabId === 'dashboard') {
+                fetchSuperadminDashboardData();
+            } else if (tabId === 'manage-users') {
+                fetchAllUsers();
+            } else if (tabId === 'manage-admins') {
+                fetchAdmins();
+            } else if (tabId === 'manage-employees') {
+                fetchEmployees();
+            } else if (tabId === 'budget-allocation') {
+                fetchAdminBudgets();
+            } else if (tabId === 'transactions') {
+                fetchTransactions();
+            }
+        }
+
+        // Dashboard Data Fetching
+        async function fetchSuperadminDashboardData() {
+            try {
+                const response = await fetch('/superadmin/overview', { credentials: 'include' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('totalUsers').textContent = data.total_users;
+                    document.getElementById('totalSuperadmins').textContent = data.total_superadmins;
+                    document.getElementById('totalAdmins').textContent = data.total_admins;
+                    document.getElementById('totalEmployees').textContent = data.total_employees;
+                    document.getElementById('totalBudgetAllocated').textContent = `₹${data.total_budget_allocated.toFixed(2)}`;
+                    document.getElementById('totalBudgetSpent').textContent = `₹${data.total_budget_spent.toFixed(2)}`;
+                    document.getElementById('totalExpensesOverall').textContent = `₹${data.total_expenses_overall.toFixed(2)}`;
+                    
+                    renderTopEmployeesChart(data.top_employees_by_expense);
+                    renderTransactionTypeChart(data.transaction_type_distribution);
+
+                } else {
+                    showToast(data.error || 'Failed to fetch dashboard data', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+                showToast('Network error fetching dashboard data', 'error');
+            }
+        }
+
+        function renderTopEmployeesChart(topEmployees) {
+            const ctx = document.getElementById('topEmployeesChart').getContext('2d');
+            if (topEmployeesChart) {
+                topEmployeesChart.destroy();
+            }
+            topEmployeesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: topEmployees.map(e => e.name),
+                    datasets: [{
+                        label: 'Total Expenses',
+                        data: topEmployees.map(e => e.total_spent),
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Amount (₹)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Top Labour by Approved Expense'
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderTransactionTypeChart(transactionTypes) {
+            const ctx = document.getElementById('transactionTypeChart').getContext('2d');
+            if (transactionTypeChart) {
+                transactionTypeChart.destroy();
+            }
+            const labels = Object.keys(transactionTypes).map(key => key.charAt(0).toUpperCase() + key.slice(1));
+            const data = Object.values(transactionTypes);
+            transactionTypeChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.6)', // allocation
+                            'rgba(54, 162, 235, 0.6)', // expense
+                            'rgba(255, 206, 86, 0.6)'  // refund
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Overall Transaction Types'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Fetch All Users
+        async function fetchAllUsers() {
+            try {
+                const response = await fetch('/superadmin/users', { credentials: 'include' });
+                const data = await response.json();
+
+                const tableBody = document.getElementById('usersTableBody');
+                tableBody.innerHTML = ''; // Clear previous data
+
+                if (response.ok && data.users.length > 0) {
+                    data.users.forEach(user => {
+                        const row = tableBody.insertRow();
+                        const statusColor = user.is_active ? 'green' : 'red';
+                        row.innerHTML = `
+                            <td class="py-2 px-4 border-b">${user.name}</td>
+                            <td class="py-2 px-4 border-b">${user.email}</td>
+                            <td class="py-2 px-4 border-b">${user.phone || 'N/A'}</td>
+                            <td class="py-2 px-4 border-b">${user.role.charAt(0).toUpperCase() + user.role.slice(1)}</td>
+                            <td class="py-2 px-4 border-b"><span class="font-semibold text-${statusColor}-600">${user.is_active ? 'Active' : 'Inactive'}</span></td>
+                            <td class="py-2 px-4 border-b">
+                                <button onclick="openUpdateUserModal(${user.id}, '${user.name}', '${user.email}', '${user.phone}', '${user.role}', ${user.is_active})" class="text-blue-600 hover:underline mr-2">Edit</button>
+                                <button onclick="toggleUserStatus(${user.id}, ${user.is_active})" class="text-${user.is_active ? 'red' : 'green'}-600 hover:underline">
+                                    ${user.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+                            </td>
+                        `;
+                    });
+                    document.getElementById('noUsers').classList.add('hidden');
+                } else {
+                    document.getElementById('noUsers').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error fetching all users:', error);
+                showToast('Network error fetching all users', 'error');
+            }
+        }
+
+        // Fetch Supervisor
+        async function fetchAdmins() {
+            try {
+                const response = await fetch('/superadmin/admins', { credentials: 'include' });
+                const data = await response.json();
+
+                const tableBody = document.getElementById('adminsTableBody');
+                tableBody.innerHTML = ''; // Clear previous data
+
+                const selectAdmin = document.getElementById('selectAdmin'); // For allocate budget modal
+                selectAdmin.innerHTML = '<option value="">Select an Supervisor</option>';
+
+                if (response.ok && data.admins.length > 0) {
+                    data.admins.forEach(admin => {
+                        const row = tableBody.insertRow();
+                        const statusColor = admin.is_active ? 'green' : 'red';
+                        row.innerHTML = `
+                            <td class="py-2 px-4 border-b">${admin.name}</td>
+                            <td class="py-2 px-4 border-b">${admin.email}</td>
+                            <td class="py-2 px-4 border-b">${admin.phone || 'N/A'}</td>
+                            <td class="py-2 px-4 border-b"><span class="font-semibold text-${statusColor}-600">${admin.is_active ? 'Active' : 'Inactive'}</span></td>
+                            <td class="py-2 px-4 border-b">₹${admin.total_budget.toFixed(2)}</td>
+                            <td class="py-2 px-4 border-b">₹${admin.total_spent.toFixed(2)}</td>
+                            <td class="py-2 px-4 border-b">₹${admin.remaining.toFixed(2)}</td>
+                             <td class="py-2 px-4 border-b">
+                                <button onclick="openUpdateUserModal(${admin.id}, '${admin.name}', '${admin.email}', '${admin.phone}', 'admin', ${admin.is_active})" class="text-blue-600 hover:underline mr-2">Edit</button>
+                                <button onclick="toggleUserStatus(${admin.id}, ${admin.is_active})" class="text-${admin.is_active ? 'red' : 'green'}-600 hover:underline">
+                                    ${admin.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+                            </td>
+                        `;
+                        // Add to select list for budget allocation
+                        const option = document.createElement('option');
+                        option.value = admin.id;
+                        option.textContent = `${admin.name} (${admin.email})`;
+                        selectAdmin.appendChild(option);
+                    });
+                    document.getElementById('noAdmins').classList.add('hidden');
+                } else {
+                    document.getElementById('noAdmins').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error fetching admins:', error);
+                showToast('Network error fetching admins', 'error');
+            }
+        }
+
+        // Fetch Labour
+        async function fetchEmployees() {
+            try {
+                const response = await fetch('/superadmin/employees', { credentials: 'include' });
+                const data = await response.json();
+
+                const tableBody = document.getElementById('employeesTableBody');
+                tableBody.innerHTML = ''; // Clear previous data
+
+                if (response.ok && data.employees.length > 0) {
+                    data.employees.forEach(employee => {
+                        const row = tableBody.insertRow();
+                        const statusColor = employee.is_active ? 'green' : 'red';
+                        row.innerHTML = `
+                            <td class="py-2 px-4 border-b">${employee.name}</td>
+                            <td class="py-2 px-4 border-b">${employee.email}</td>
+                            <td class="py-2 px-4 border-b">${employee.phone || 'N/A'}</td>
+                            <td class="py-2 px-4 border-b"><span class="font-semibold text-${statusColor}-600">${employee.is_active ? 'Active' : 'Inactive'}</span></td>
+                            <td class="py-2 px-4 border-b">
+                                <button onclick="openUpdateUserModal(${employee.id}, '${employee.name}', '${employee.email}', '${employee.phone}', 'employee', ${employee.is_active})" class="text-blue-600 hover:underline mr-2">Edit</button>
+                                <button onclick="toggleUserStatus(${employee.id}, ${employee.is_active})" class="text-${employee.is_active ? 'red' : 'green'}-600 hover:underline">
+                                    ${employee.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+                            </td>
+                        `;
+                    });
+                    document.getElementById('noEmployees').classList.add('hidden');
+                } else {
+                    document.getElementById('noEmployees').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error fetching Labour:', error);
+                showToast('Network error fetching Labour', 'error');
+            }
+        }
+
+        // Fetch Supervisor Budgets for Allocation Tab
+        async function fetchAdminBudgets() {
+            try {
+                const response = await fetch('/superadmin/admins', { credentials: 'include' });
+                const data = await response.json();
+
+                const tableBody = document.getElementById('adminBudgetTableBody');
+                tableBody.innerHTML = ''; // Clear previous data
+
+                if (response.ok && data.admins.length > 0) {
+                    data.admins.forEach(admin => {
+                        const row = tableBody.insertRow();
+                        row.innerHTML = `
+                            <td class="py-2 px-4 border-b">${admin.name}</td>
+                            <td class="py-2 px-4 border-b">₹${admin.total_budget.toFixed(2)}</td>
+                            <td class="py-2 px-4 border-b">₹${admin.total_spent.toFixed(2)}</td>
+                            <td class="py-2 px-4 border-b">₹${admin.remaining.toFixed(2)}</td>
+                        `;
+                    });
+                    document.getElementById('noAdminBudgets').classList.add('hidden');
+                } else {
+                    document.getElementById('noAdminBudgets').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error fetching admin budgets:', error);
+                showToast('Network error fetching admin budgets', 'error');
+            }
+        }
+
+        // Fetch All Transactions
+        async function fetchTransactions() {
+            try {
+                const response = await fetch('/superadmin/transactions', { credentials: 'include' });
+                const data = await response.json();
+
+                const tableBody = document.getElementById('transactionsTableBody');
+                tableBody.innerHTML = ''; // Clear previous data
+
+                if (response.ok && data.transactions.length > 0) {
+                    data.transactions.forEach(transaction => {
+                        const row = tableBody.insertRow();
+                        const senderName = transaction.sender && transaction.sender.name ? `${transaction.sender.name} (${transaction.sender.email})` : 'System';
+                        const receiverName = transaction.receiver && transaction.receiver.name ? `${transaction.receiver.name} (${transaction.receiver.email})` : 'System';
+                        row.innerHTML = `
+                            <td class="py-2 px-4 border-b">${transaction.timestamp}</td>
+                            <td class="py-2 px-4 border-b">${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}</td>
+                            <td class="py-2 px-4 border-b">₹${transaction.amount.toFixed(2)}</td>
+                            <td class="py-2 px-4 border-b">${transaction.description}</td>
+                            <td class="py-2 px-4 border-b">${senderName}</td>
+                            <td class="py-2 px-4 border-b">${receiverName}</td>
+                            <td class="py-2 px-4 border-b">${transaction.site_name || 'N/A'}</td>
+                        `;
+                    });
+                    document.getElementById('noTransactions').classList.add('hidden');
+                } else {
+                    document.getElementById('noTransactions').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error fetching transactions:', error);
+                showToast('Network error fetching transactions', 'error');
+            }
+        }
+
+        // Add User Form Handler
+        const addUserForm = document.getElementById('addUserForm');
+        if (addUserForm) {
+            addUserForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(addUserForm);
+                const data = Object.fromEntries(formData.entries());
+
+                try {
+                    const response = await fetch('/superadmin/add-user', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                        credentials: 'include'
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showToast(result.message, 'success');
+                        addUserForm.reset();
+                        document.getElementById('addUserModal').style.display = 'none';
+                        fetchAllUsers(); // Refresh user list
+                        fetchSuperadminDashboardData(); // Refresh dashboard counts
+                        fetchAdmins(); // Refresh admins if an admin was added
+                        fetchEmployees(); // Refresh employees if an employee was added
+                    } else {
+                        showToast(result.error || 'Failed to add user', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error adding user:', error);
+                    showToast('Error adding user. Please try again.', 'error');
+                }
+            });
+        }
+
+        // Open Update User Modal
+        function openUpdateUserModal(id, name, email, phone, role, is_active) {
+            document.getElementById('updateUserId').value = id;
+            document.getElementById('updateUserName').value = name;
+            document.getElementById('updateUserEmail').value = email;
+            document.getElementById('updateUserPhone').value = phone;
+            document.getElementById('updateUserRole').value = role;
+            // Password field is intentionally left blank for security; user must type new one
+            document.getElementById('updateUserPassword').value = '';
+
+            document.getElementById('updateUserModal').style.display = 'flex';
+        }
+
+        // Update User Form Handler
+        const updateUserForm = document.getElementById('updateUserForm');
+        if (updateUserForm) {
+            updateUserForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const userId = document.getElementById('updateUserId').value;
+                const formData = new FormData(updateUserForm);
+                const data = Object.fromEntries(formData.entries());
+
+                // Remove empty password if not changed
+                if (!data.password) {
+                    delete data.password;
+                }
+
+                try {
+                    const response = await fetch(`/superadmin/update-user/${userId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                        credentials: 'include'
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showToast(result.message, 'success');
+                        document.getElementById('updateUserModal').style.display = 'none';
+                        fetchAllUsers(); // Refresh user list
+                        fetchAdmins(); // Refresh admins if updated
+                        fetchEmployees(); // Refresh employees if updated
+                    } else {
+                        showToast(result.error || 'Failed to update user', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error updating user:', error);
+                    showToast('Error updating user. Please try again.', 'error');
+                }
+            });
+        }
+
+        // Toggle User Status
+        async function toggleUserStatus(userId, currentStatus) {
+            if (!confirm(`Are you sure you want to ${currentStatus ? 'deactivate' : 'activate'} this user?`)) {
+                return;
+            }
+            try {
+                const response = await fetch(`/superadmin/user/${userId}/toggle-status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: currentStatus ? 'inactive' : 'active' }),
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showToast(result.message, 'success');
+                    fetchAllUsers(); // Refresh lists
+                    fetchAdmins();
+                    fetchEmployees();
+                    fetchSuperadminDashboardData(); // Update counts
+                } else {
+                    showToast(result.error || 'Failed to toggle user status', 'error');
+                }
+            } catch (error) {
+                console.error('Error toggling user status:', error);
+                showToast('Network error toggling user status', 'error');
+            }
+        }
+
+        // Allocate Budget Form Handler
+        const allocateBudgetForm = document.getElementById('allocateBudgetForm');
+        if (allocateBudgetForm) {
+            allocateBudgetForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(allocateBudgetForm);
+                const data = Object.fromEntries(formData.entries());
+                data.amount = parseFloat(data.amount); // Ensure amount is a number
+
+                try {
+                    const response = await fetch('/superadmin/allocate-budget', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                        credentials: 'include'
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showToast(result.message, 'success');
+                        allocateBudgetForm.reset();
+                        document.getElementById('allocateBudgetModal').style.display = 'none';
+                        fetchAdminBudgets(); // Refresh admin budget list
+                        fetchSuperadminDashboardData(); // Refresh dashboard total budget
+                    } else {
+                        showToast(result.error || 'Failed to allocate budget', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error allocating budget:', error);
+                    showToast('Error allocating budget. Please try again.', 'error');
+                }
+            });
+        }
+
+        // Download Full Report CSV
+        document.getElementById('downloadFullReportBtn').addEventListener('click', async () => {
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
+
+            if (!startDate || !endDate) {
+                showToast('Please select both start and end dates for the report.', 'error');
+                return;
+            }
+
+            const url = `/superadmin/export-transactions-csv?start_date=${startDate}&end_date=${endDate}`;
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `full_transactions_${startDate}_to_${endDate}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(downloadUrl);
+                    showToast('Report downloaded successfully!', 'success');
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.error || 'Failed to download report', 'error');
+                }
+            } catch (error) {
+                console.error('Error downloading report:', error);
+                showToast('Network error downloading report', 'error');
+            }
+        });
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchUserName(); // Fetch and display logged-in user's name
+            switchTab('dashboard'); // Initialize with Dashboard tab active
+
+            // Attach event listeners for desktop sidebar
+            document.querySelectorAll('.tab-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    switchTab(e.currentTarget.dataset.tab);
+                });
+            });
+
+            document.getElementById('logoutBtn').addEventListener('click', logout); // Desktop logout button
+
+            // Attach event listeners for mobile bottom nav
+            document.querySelectorAll('.bottom-nav-item').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (e.currentTarget.dataset.tab) { // Check if it's a tab item
+                        switchTab(e.currentTarget.dataset.tab);
+                    } else if (e.currentTarget.id === 'mobileLogoutBtn') { // Handle logout button
+                        logout();
+                    }
+                });
+            });
+             document.getElementById('mobileLogoutBtn').addEventListener('click', logout);
+
+
+        });
+    </script>
+</body>
+</html>
