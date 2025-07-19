@@ -1,5 +1,6 @@
 import os
-from flask import Flask, render_template, send_from_directory, jsonify, make_response
+import logging
+from flask import Flask, render_template, jsonify
 from flask_cors import CORS
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
@@ -16,55 +17,56 @@ load_dotenv()
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
-# Convert DATABASE_URL to SQLALCHEMY_DATABASE_URI
-# Convert DATABASE_URL to SQLALCHEMY_DATABASE_URI
+# Convert DATABASE_URL to SQLALCHEMY_DATABASE_URI for pymysql
 db_uri = os.getenv("DATABASE_URL")
 if db_uri and db_uri.startswith("mysql://"):
     db_uri = db_uri.replace("mysql://", "mysql+pymysql://")
 
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-super-secret-key-here-change-this-in-production')
 app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
-
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Define UPLOAD_FOLDER explicitly outside static, e.g., at the project root level
-# This creates an 'uploads' directory parallel to your 'app.py' and 'static'
+# UPLOAD_FOLDER setup
 UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads'))
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max upload size
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 
-# Ensure the upload folder exists
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
     print(f"Created UPLOAD_FOLDER: {UPLOAD_FOLDER}")
 
-# Initialize extensions
+# Ensure logs folder exists
+LOG_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'logs'))
+os.makedirs(LOG_FOLDER, exist_ok=True)
+logging.basicConfig(
+    filename=os.path.join(LOG_FOLDER, 'error.log'),
+    level=logging.WARNING,
+    format='%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+)
+
+# Flask extensions init
 db.init_app(app)
 login_manager.init_app(app)
-login_manager.login_view = 'auth.login' # Specify the login view for Flask-Login
-
-# Set the session protection to 'strong' (or 'basic')
+login_manager.login_view = 'auth.login'
 login_manager.session_protection = "strong"
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Register blueprints
+# Blueprints
 app.register_blueprint(auth_bp, url_prefix='/auth')
 app.register_blueprint(superadmin_bp, url_prefix='/superadmin')
 app.register_blueprint(admin_bp, url_prefix='/admin')
 app.register_blueprint(employee_bp, url_prefix='/employee')
 app.register_blueprint(ai_insights_bp, url_prefix='/ai')
 
-# Enable CORS for all routes by default
+# CORS
 CORS(app,
-     origins=["http://v21.in", "https://v21.in"], # Add localhost for development
-     supports_credentials=True
-     # You might not need to explicitly list allow_headers and methods if supports_credentials is True and default allows are sufficient
-)
+     origins=["http://v21.in", "https://v21.in"],
+     supports_credentials=True)
 
-# Routes to serve your HTML dashboards
+# Routes
 @app.route('/')
 def index():
     return render_template('login.html')
@@ -79,11 +81,8 @@ def dashboard(role):
             return render_template('dashboard_admin.html')
         elif role == 'employee':
             return render_template('dashboard_employee.html')
-    else:
-        # Redirect to their actual dashboard if role doesn't match
-        return jsonify({'error': 'Invalid role for dashboard'}), 404
+    return jsonify({'error': 'Invalid role for dashboard'}), 404
 
-# Add session status endpoint
 @app.route('/session-status')
 @login_required
 def session_status():
@@ -110,12 +109,10 @@ def internal_error(error):
 def forbidden(error):
     return jsonify({'error': 'Forbidden - Access denied'}), 403
 
+# Local dev only
 if __name__ == "__main__":
     with app.app_context():
-        # db.create_all() # Use create_db.py for initial setup and migrate_db.py for migrations
         print("💡 Consider running 'python create_db.py' once to set up the database and initial users.")
         print("💡 Use 'python migrate_db.py' for schema updates.")
-import logging
-logging.basicConfig(filename='logs/error.log', level=logging.WARNING)
 
-app.run(host="0.0.0.0", debug=False, port=int(os.environ.get("PORT", 8080)))
+    app.run(host="0.0.0.0", debug=True, port=int(os.environ.get("PORT", 5000)))
