@@ -8,3 +8,5 @@ __pycache__/*.py[cod]
 venv.zip/
 # Ignore Tailwind CLI binary
 app/tailwind-bin/tailwindcss
+# Ignore Tailwind CLI binary
+app/tailwind-bin/tailwindcss
