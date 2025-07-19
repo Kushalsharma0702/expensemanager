@@ -1,4 +1,4 @@
 from app import app
 
-# WSGI entry point
+# Railway looks for "application"
 application = app
