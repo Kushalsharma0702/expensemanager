@@ -63,7 +63,12 @@ app.register_blueprint(ai_insights_bp, url_prefix='/ai')
 
 # CORS
 CORS(app,
-     origins=["http://v21.in", "https://v21.in"],
+     origins=[
+         "https://expensemanage.up.railway.app",
+         "http://expensemanage.up.railway.app",
+         "https://v21.in",
+         "http://v21.in"
+     ],
      supports_credentials=True)
 
 # Routes
