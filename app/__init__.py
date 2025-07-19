@@ -114,5 +114,4 @@ if __name__ == "__main__":
     with app.app_context():
         print("💡 Consider running 'python create_db.py' once to set up the database and initial users.")
         print("💡 Use 'python migrate_db.py' for schema updates.")
-
-    app.run(host="0.0.0.0", debug=True, port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", debug=True, port=int(os.environ.get("PORT", 5000))) 
