@@ -238,8 +238,9 @@ def allocate_budget():
     data = request.get_json()
     admin_id = data.get('admin_id')
     amount = data.get('amount')
-    
-    if not all([admin_id, amount]):
+    site_name = data.get('site_name')  # New field
+
+    if not all([admin_id, amount, site_name]):
         return jsonify({'error': 'Missing required fields'}), 400
     
     try:
@@ -255,23 +256,22 @@ def allocate_budget():
         if not budget:
             budget = Budget(admin_id=admin_id, total_budget=Decimal('0.00'), total_spent=Decimal('0.00'), remaining=Decimal('0.00'))
             db.session.add(budget)
-            db.session.commit() # Commit to get an ID for the new budget if it was just created
+            db.session.commit()
         
         budget.total_budget += amount
         budget.remaining += amount
         budget.updated_at = datetime.utcnow()
 
-        # Record transaction for budget allocation
         transaction = Transaction(
-            sender_id=current_user.id, # Superadmin is the sender
+            sender_id=current_user.id,
             receiver_id=admin_id,
             type='allocation',
             amount=amount,
             description=f"Budget allocation to {admin.name} (Admin)",
-            # site_name='N/A' # Site name might not be relevant for direct budget allocations from superadmin
+            site_name=site_name,
+            timestamp=datetime.utcnow()  # Real-time timestamp
         )
         db.session.add(transaction)
-        
         db.session.commit()
         
         return jsonify({'message': f'Budget of {amount} allocated to {admin.name} successfully'}), 200
