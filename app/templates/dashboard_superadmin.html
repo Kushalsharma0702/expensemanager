@@ -132,7 +132,11 @@
                     <label for="siteName" class="block text-sm font-medium text-gray-700">Site Name</label>
                     <input type="text" id="siteName" name="site_name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                 </div>
-                <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Allocate Budget</button>
+                <button onclick="openAllocateBudgetModal()"
+        class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+    Allocate New Budget
+</button>
+
             </form>
 
         </div>
@@ -427,6 +431,11 @@
     </footer>
 
     <script>
+        function openAllocateBudgetModal() {
+    fetchAdmins();  // ✅ Populate dropdown first
+    document.getElementById('allocateBudgetModal').style.display = 'flex'; // Then show modal
+}
+
         let topEmployeesChart, transactionTypeChart; // Chart instances
 
         // Function to display toast messages
@@ -459,7 +468,34 @@
                 toast.classList.add('translate-x-full');
             }, 3000);
         }
+        document.addEventListener("DOMContentLoaded", async () => {
+  const adminSelect = document.getElementById("selectAdmin");
 
+  try {
+    const response = await fetch("/superadmin/get-supervisors");
+    const data = await response.json();
+
+    if (data.admins && data.admins.length > 0) {
+      data.admins.forEach(admin => {
+        const option = document.createElement("option");
+        option.value = admin.id;
+        option.textContent = admin.name;
+        adminSelect.appendChild(option);
+      });
+    } else {
+      const option = document.createElement("option");
+      option.textContent = "No supervisors found";
+      option.disabled = true;
+      adminSelect.appendChild(option);
+    }
+  } catch (error) {
+    console.error("Failed to load supervisors:", error);
+    const option = document.createElement("option");
+    option.textContent = "Error loading supervisors";
+    option.disabled = true;
+    adminSelect.appendChild(option);
+  }
+});
         // Fetch and display logged-in user's name
         async function fetchUserName() {
             try {
@@ -528,6 +564,7 @@
                 fetchEmployees();
             } else if (tabId === 'budget-allocation') {
                 fetchAdminBudgets();
+                fetchAdmins();
             } else if (tabId === 'transactions') {
                 fetchTransactions();
             }
@@ -672,53 +709,68 @@
                 showToast('Network error fetching all users', 'error');
             }
         }
-
-        // Fetch Supervisor
+        
+                // Fetch Supervisor
         async function fetchAdmins() {
             try {
                 const response = await fetch('/superadmin/admins', { credentials: 'include' });
                 const data = await response.json();
-
-                const tableBody = document.getElementById('adminsTableBody');
-                tableBody.innerHTML = ''; // Clear previous data
-
-                const selectAdmin = document.getElementById('selectAdmin'); // For allocate budget modal
-                selectAdmin.innerHTML = '<option value="">Select an Supervisor</option>';
-
-                if (response.ok && data.admins.length > 0) {
-                    data.admins.forEach(admin => {
-                        const row = tableBody.insertRow();
-                        const statusColor = admin.is_active ? 'green' : 'red';
-                        row.innerHTML = `
-                            <td class="py-2 px-4 border-b">${admin.name}</td>
-                            <td class="py-2 px-4 border-b">${admin.email}</td>
-                            <td class="py-2 px-4 border-b">${admin.phone || 'N/A'}</td>
-                            <td class="py-2 px-4 border-b"><span class="font-semibold text-${statusColor}-600">${admin.is_active ? 'Active' : 'Inactive'}</span></td>
-                            <td class="py-2 px-4 border-b">₹${admin.total_budget.toFixed(2)}</td>
-                            <td class="py-2 px-4 border-b">₹${admin.total_spent.toFixed(2)}</td>
-                            <td class="py-2 px-4 border-b">₹${admin.remaining.toFixed(2)}</td>
-                             <td class="py-2 px-4 border-b">
-                                <button onclick="openUpdateUserModal(${admin.id}, '${admin.name}', '${admin.email}', '${admin.phone}', 'admin', ${admin.is_active})" class="text-blue-600 hover:underline mr-2">Edit</button>
-                                <button onclick="toggleUserStatus(${admin.id}, ${admin.is_active})" class="text-${admin.is_active ? 'red' : 'green'}-600 hover:underline">
-                                    ${admin.is_active ? 'Deactivate' : 'Activate'}
-                                </button>
-                            </td>
-                        `;
-                        // Add to select list for budget allocation
+        
+                // ✅ Populate dropdown (for budget allocation modal)
+                const selectAdmin = document.getElementById('selectAdmin');
+                if (selectAdmin) {
+                    selectAdmin.innerHTML = '<option value="">Select a Supervisor</option>';
+                    if (response.ok && data.admins.length > 0) {
+                        data.admins.forEach(admin => {
+                            const option = document.createElement('option');
+                            option.value = admin.id;
+                            option.textContent = `${admin.name} (${admin.email})`;
+                            selectAdmin.appendChild(option);
+                        });
+                    } else {
                         const option = document.createElement('option');
-                        option.value = admin.id;
-                        option.textContent = `${admin.name} (${admin.email})`;
+                        option.textContent = "No supervisors found";
+                        option.disabled = true;
                         selectAdmin.appendChild(option);
-                    });
-                    document.getElementById('noAdmins').classList.add('hidden');
-                } else {
-                    document.getElementById('noAdmins').classList.remove('hidden');
+                    }
+                }
+        
+                // ✅ Populate admin table
+                const tableBody = document.getElementById('adminsTableBody');
+                if (tableBody) {
+                    tableBody.innerHTML = ''; // Clear previous data
+        
+                    if (response.ok && data.admins.length > 0) {
+                        data.admins.forEach(admin => {
+                            const row = tableBody.insertRow();
+                            const statusColor = admin.is_active ? 'green' : 'red';
+                            row.innerHTML = `
+                                <td class="py-2 px-4 border-b">${admin.name}</td>
+                                <td class="py-2 px-4 border-b">${admin.email}</td>
+                                <td class="py-2 px-4 border-b">${admin.phone || 'N/A'}</td>
+                                <td class="py-2 px-4 border-b"><span class="font-semibold text-${statusColor}-600">${admin.is_active ? 'Active' : 'Inactive'}</span></td>
+                                <td class="py-2 px-4 border-b">₹${admin.total_budget.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">₹${admin.total_spent.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">₹${admin.remaining.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">
+                                    <button onclick="openUpdateUserModal(${admin.id}, '${admin.name}', '${admin.email}', '${admin.phone}', 'admin', ${admin.is_active})" class="text-blue-600 hover:underline mr-2">Edit</button>
+                                    <button onclick="toggleUserStatus(${admin.id}, ${admin.is_active})" class="text-${admin.is_active ? 'red' : 'green'}-600 hover:underline">
+                                        ${admin.is_active ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                </td>
+                            `;
+                        });
+                        document.getElementById('noAdmins').classList.add('hidden');
+                    } else {
+                        document.getElementById('noAdmins').classList.remove('hidden');
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching admins:', error);
-                showToast('Network error fetching admins', 'error');
+                showToast('Network error fetching supervisors.', 'error');
             }
         }
+        
 
         // Fetch Labour
         async function fetchEmployees() {
@@ -1005,6 +1057,7 @@
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
             fetchUserName(); // Fetch and display logged-in user's name
+            fetchAdmins(); 
             switchTab('dashboard'); // Initialize with Dashboard tab active
 
             // Attach event listeners for desktop sidebar
