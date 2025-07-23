@@ -10,3 +10,4 @@ venv.zip/
 app/tailwind-bin/tailwindcss
 # Ignore Tailwind CLI binary
 app/tailwind-bin/tailwindcss
+uploads/

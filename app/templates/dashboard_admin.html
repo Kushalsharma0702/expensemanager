@@ -220,6 +220,12 @@
         <div class="modal-content" style="max-width: 800px;">
             <span class="close-button" onclick="document.getElementById('documentPreviewModal').style.display='none'">&times;</span>
             <h2 class="text-xl font-semibold mb-4">Document Preview</h2>
+            <div id="documentPreviewSpinner" class="flex justify-center items-center mb-4" style="display:none;">
+                <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+            </div>
             <div id="documentPreviewContent" class="mb-4"></div>
             <a id="documentDownloadLink" href="#" target="_blank" class="text-blue-600 hover:underline">Open in New Tab</a>
         </div>
@@ -1533,18 +1539,32 @@
         function openDocumentPreview(documentUrl) {
             const contentDiv = document.getElementById('documentPreviewContent');
             const downloadLink = document.getElementById('documentDownloadLink');
+            const spinner = document.getElementById('documentPreviewSpinner');
             contentDiv.innerHTML = '';
+            spinner.style.display = 'flex';
             downloadLink.href = documentUrl;
             // Determine file type
             const fileExtension = documentUrl.split('.').pop().toLowerCase();
+            document.getElementById('documentPreviewModal').style.display = 'flex';
             if (["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(fileExtension)) {
-                contentDiv.innerHTML = `<img src="${documentUrl}" alt="Document Image" class="max-w-full h-auto rounded-md shadow-md">`;
+                const img = new window.Image();
+                img.src = documentUrl;
+                img.alt = "Document Image";
+                img.className = "max-w-full h-auto rounded-md shadow-md";
+                img.onload = () => { spinner.style.display = 'none'; };
+                img.onerror = () => { spinner.style.display = 'none'; contentDiv.innerHTML = '<p class="text-red-600">Failed to load image.</p>'; };
+                contentDiv.appendChild(img);
             } else if (fileExtension === "pdf") {
-                contentDiv.innerHTML = `<iframe src="${documentUrl}" class="w-full h-96 border rounded-md"></iframe>`;
+                const iframe = document.createElement('iframe');
+                iframe.src = documentUrl;
+                iframe.className = "w-full h-96 border rounded-md";
+                iframe.onload = () => { spinner.style.display = 'none'; };
+                iframe.onerror = () => { spinner.style.display = 'none'; contentDiv.innerHTML = '<p class="text-red-600">Failed to load PDF.</p>'; };
+                contentDiv.appendChild(iframe);
             } else {
+                spinner.style.display = 'none';
                 contentDiv.innerHTML = `<p class="text-gray-600">No preview available for this file type (.${fileExtension}).</p>`;
             }
-            document.getElementById('documentPreviewModal').style.display = 'flex';
         }
     </script>
 </body>
