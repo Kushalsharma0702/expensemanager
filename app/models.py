@@ -107,7 +107,15 @@ class Expense(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     receipt_url = db.Column(db.String(255), nullable=True)
-
+    document_path = db.Column(db.String(255), nullable=True)
+    title = db.Column(db.String(255), nullable=False)
+    category = db.Column(db.String(255), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    location = db.Column(db.String(255), nullable=False)
+    purpose = db.Column(db.Text, nullable=False)
+    status = db.Column(ENUM('pending', 'approved', 'rejected'), default='pending', nullable=False)
+    rejection_reason = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     admin = db.relationship('User', foreign_keys=[admin_id], backref=db.backref('reviewed_expenses', lazy=True))
     # Note: `employee` relationship is defined in the User model with backref
 

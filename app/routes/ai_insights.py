@@ -118,47 +118,34 @@ def get_admin_employee_performance():
 def get_admin_day_patterns():
     if current_user.role != 'admin':
         return jsonify({'error': 'Unauthorized'}), 403
-    
     try:
-        # Day of week patterns for expense submission (using created_at)
-        day_of_week_data = db.session.query(
-            extract('dow', Expense.created_at).label('day_of_week'), # 0=Sunday, 1=Monday, ...
-            func.count(Expense.id).label('expense_count'),
-            func.sum(Expense.amount).label('total_amount')
-        ).filter(
-            Expense.admin_id == current_user.id,
-            Expense.status == 'approved' # Consider approved expenses for spending patterns
-        ).group_by(
-            extract('dow', Expense.created_at)
-        ).order_by(
-            extract('dow', Expense.created_at)
-        ).all()
-
-        day_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-        day_patterns = [{'day': day_names[int(d)], 'count': int(c), 'total_amount': float(t) if t else 0.0} for d, c, t in day_of_week_data]
-
-        # Hour of day patterns for expense submission (using created_at)
-        hour_of_day_data = db.session.query(
-            extract('hour', Expense.created_at).label('hour_of_day'),
-            func.count(Expense.id).label('expense_count'),
-            func.sum(Expense.amount).label('total_amount')
+        # Day of week pattern
+        day_of_week_patterns = db.session.query(
+            func.dayofweek(Expense.created_at).label('day'),
+            func.count(Expense.id).label('count')
         ).filter(
             Expense.admin_id == current_user.id,
             Expense.status == 'approved'
-        ).group_by(
-            extract('hour', Expense.created_at)
-        ).order_by(
-            extract('hour', Expense.created_at)
-        ).all()
-
-        hour_patterns = [{'hour': int(h), 'count': int(c), 'total_amount': float(t) if t else 0.0} for h, c, t in hour_of_day_data]
-
-        return jsonify({
-            'day_of_week_patterns': day_patterns,
-            'hour_of_day_patterns': hour_patterns
-        })
+        ).group_by(func.dayofweek(Expense.created_at)).all()
+        # Convert to readable day names
+        day_map = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        day_patterns = [
+            {'day': day_map[int(day)-1], 'count': count} for day, count in day_of_week_patterns if day is not None
+        ]
+        # Hour of day pattern
+        hour_of_day_patterns = db.session.query(
+            func.hour(Expense.created_at).label('hour'),
+            func.count(Expense.id).label('count')
+        ).filter(
+            Expense.admin_id == current_user.id,
+            Expense.status == 'approved'
+        ).group_by(func.hour(Expense.created_at)).all()
+        hour_patterns = [
+            {'hour': int(hour), 'count': count} for hour, count in hour_of_day_patterns if hour is not None
+        ]
+        return jsonify({'day_of_week_patterns': day_patterns, 'hour_of_day_patterns': hour_patterns})
     except Exception as e:
-        current_app.logger.error(f"Error fetching admin day patterns: {e}")
+        current_app.logger.error(f"Error fetching day patterns: {e}")
         return jsonify({'error': 'Failed to fetch day patterns'}), 500
 
 @ai_insights_bp.route('/employee/spending-insights')

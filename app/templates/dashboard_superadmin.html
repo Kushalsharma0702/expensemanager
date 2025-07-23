@@ -111,6 +111,12 @@
                         <option value="employee">Labour</option>
                     </select>
                 </div>
+                <div id="updateSupervisorField" style="display:none;">
+                    <label for="updateSupervisorSelect" class="block text-sm font-medium text-gray-700">Allocated Supervisor</label>
+                    <select id="updateSupervisorSelect" name="supervisor_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="">Select Supervisor...</option>
+                    </select>
+                </div>
                 <div>
                     <label for="updateUserPassword" class="block text-sm font-medium text-gray-700">New Password (leave blank to keep current)</label>
                     <input type="password" id="updateUserPassword" name="password" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
@@ -162,16 +168,13 @@
                     <span id="userName" class="font-medium">SuperAdmin</span>
                     <i class="fas fa-chevron-down text-sm"></i>
                 </button>
-                <!-- <div id="profileMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                <div id="profileMenu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                    <div class="px-4 py-2 border-b">
+                        <p class="text-sm font-medium" id="profileMenuUserName">User Name</p>
+                        <p class="text-xs text-gray-500" id="profileMenuUserRole">Role</p>
+                    </div>
                     <a href="#" id="logoutBtn" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
-                </div> -->
-                <div id="profileMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
-    <div class="px-4 py-2 border-b">
-        <p class="text-sm font-medium" id="profileUserName"></p>
-        <p class="text-xs text-gray-500" id="profileUserRole"></p>
-    </div>
-    <a href="#" id="logoutBtn" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
-</div>
+                </div>
             </div>
         </div>
     </header>
@@ -338,6 +341,7 @@
                                     <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Name</th>
                                     <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Email</th>
                                     <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Phone</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Supervisor</th>
                                     <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Status</th>
                                     <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Actions</th>
                                 </tr>
@@ -485,7 +489,7 @@
   const adminSelect = document.getElementById("selectAdmin");
 
   try {
-    const response = await fetch("/superadmin/get-supervisors");
+    const response = await fetch("/superadmin/admins");
     const data = await response.json();
 
     if (data.admins && data.admins.length > 0) {
@@ -509,6 +513,34 @@
     adminSelect.appendChild(option);
   }
 });
+        // Fetch and display logged-in user's name and role in profile dropdown
+        async function fetchUserProfileMenu() {
+            try {
+                const response = await fetch('/auth/me', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('userName').textContent = data.name;
+                    document.getElementById('profileMenuUserName').textContent = data.name;
+                    document.getElementById('profileMenuUserRole').textContent = data.role.charAt(0).toUpperCase() + data.role.slice(1);
+                }
+            } catch (error) {
+                // fallback: do nothing
+            }
+        }
+        fetchUserProfileMenu();
+        // Profile menu toggle logic
+        const profileMenuButton = document.getElementById('profileMenuButton');
+        const profileMenu = document.getElementById('profileMenu');
+        if (profileMenuButton && profileMenu) {
+            profileMenuButton.addEventListener('click', () => {
+                profileMenu.classList.toggle('hidden');
+            });
+            document.addEventListener('click', (event) => {
+                if (!profileMenuButton.contains(event.target) && !profileMenu.contains(event.target)) {
+                    profileMenu.classList.add('hidden');
+                }
+            });
+        }
         // Fetch and display logged-in user's name
         async function fetchUserName() {
             try {
@@ -798,15 +830,17 @@
 
                 if (response.ok && data.employees.length > 0) {
                     data.employees.forEach(employee => {
-                        const row = tableBody.insertRow();
                         const statusColor = employee.is_active ? 'green' : 'red';
+                        const supervisorInfo = employee.supervisor && employee.supervisor.name ? `${employee.supervisor.name} (${employee.supervisor.email})` : 'N/A';
+                        const row = tableBody.insertRow();
                         row.innerHTML = `
                             <td class="py-2 px-4 border-b">${employee.name}</td>
                             <td class="py-2 px-4 border-b">${employee.email}</td>
                             <td class="py-2 px-4 border-b">${employee.phone || 'N/A'}</td>
+                            <td class="py-2 px-4 border-b">${supervisorInfo}</td>
                             <td class="py-2 px-4 border-b"><span class="font-semibold text-${statusColor}-600">${employee.is_active ? 'Active' : 'Inactive'}</span></td>
                             <td class="py-2 px-4 border-b">
-                                <button onclick="openUpdateUserModal(${employee.id}, '${employee.name}', '${employee.email}', '${employee.phone}', 'employee', ${employee.is_active})" class="text-blue-600 hover:underline mr-2">Edit</button>
+                                <button onclick="openUpdateUserModal(${employee.id}, '${employee.name}', '${employee.email}', '${employee.phone}', 'employee', ${employee.is_active}, '${employee.supervisor ? employee.supervisor.id : ''}')" class="text-blue-600 hover:underline mr-2">Edit</button>
                                 <button onclick="toggleUserStatus(${employee.id}, ${employee.is_active})" class="text-${employee.is_active ? 'red' : 'green'}-600 hover:underline">
                                     ${employee.is_active ? 'Deactivate' : 'Activate'}
                                 </button>
@@ -977,16 +1011,58 @@
             });
         }
 
-        // Open Update User Modal
-        function openUpdateUserModal(id, name, email, phone, role, is_active) {
+        // Supervisor dropdown logic for update modal
+        const updateUserRoleSelect = document.getElementById('updateUserRole');
+        const updateSupervisorField = document.getElementById('updateSupervisorField');
+        const updateSupervisorSelect = document.getElementById('updateSupervisorSelect');
+        updateUserRoleSelect.addEventListener('change', function() {
+            if (this.value === 'employee') {
+                updateSupervisorField.style.display = 'block';
+                populateUpdateSupervisors();
+            } else {
+                updateSupervisorField.style.display = 'none';
+                updateSupervisorSelect.innerHTML = '<option value="">Select Supervisor...</option>';
+            }
+        });
+        async function populateUpdateSupervisors(selectedId) {
+            updateSupervisorSelect.innerHTML = '<option value="">Loading...</option>';
+            try {
+                const response = await fetch('/superadmin/admins', { credentials: 'include' });
+                const data = await response.json();
+                updateSupervisorSelect.innerHTML = '<option value="">Select Supervisor...</option>';
+                if (data.admins && data.admins.length > 0) {
+                    data.admins.forEach(admin => {
+                        const option = document.createElement('option');
+                        option.value = admin.id;
+                        option.textContent = `${admin.name} (${admin.email})`;
+                        if (selectedId && String(admin.id) === String(selectedId)) option.selected = true;
+                        updateSupervisorSelect.appendChild(option);
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.textContent = 'No supervisors found';
+                    option.disabled = true;
+                    updateSupervisorSelect.appendChild(option);
+                }
+            } catch (error) {
+                updateSupervisorSelect.innerHTML = '<option value="">Error loading supervisors</option>';
+            }
+        }
+        // Open Update User Modal (override to handle supervisor)
+        window.openUpdateUserModal = function(id, name, email, phone, role, is_active, supervisor_id) {
             document.getElementById('updateUserId').value = id;
             document.getElementById('updateUserName').value = name;
             document.getElementById('updateUserEmail').value = email;
             document.getElementById('updateUserPhone').value = phone;
             document.getElementById('updateUserRole').value = role;
-            // Password field is intentionally left blank for security; user must type new one
             document.getElementById('updateUserPassword').value = '';
-
+            if (role === 'employee') {
+                updateSupervisorField.style.display = 'block';
+                populateUpdateSupervisors(supervisor_id);
+            } else {
+                updateSupervisorField.style.display = 'none';
+                updateSupervisorSelect.innerHTML = '<option value="">Select Supervisor...</option>';
+            }
             document.getElementById('updateUserModal').style.display = 'flex';
         }
 
@@ -1003,6 +1079,11 @@
                 // Remove empty password if not changed
                 if (!data.password) {
                     delete data.password;
+                }
+
+                // If role is employee, ensure supervisor_id is included
+                if (data.role !== 'employee') {
+                    delete data.supervisor_id;
                 }
 
                 try {

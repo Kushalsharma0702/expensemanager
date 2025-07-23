@@ -147,6 +147,70 @@
         </div>
     </div>
 
+    <!-- Edit Labour Modal -->
+    <div id="editEmployeeModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="document.getElementById('editEmployeeModal').style.display='none'">&times;</span>
+            <h2 class="text-xl font-semibold mb-4">Edit Labour Details</h2>
+            <form id="editEmployeeForm" class="space-y-4">
+                <input type="hidden" id="editEmployeeId">
+                <div>
+                    <label for="editEmployeeName" class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" id="editEmployeeName" name="name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="editEmployeeEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="editEmployeeEmail" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="editEmployeePhone" class="block text-sm font-medium text-gray-700">Phone</label>
+                    <input type="tel" id="editEmployeePhone" name="phone" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="editEmployeeStatus" class="block text-sm font-medium text-gray-700">Status</label>
+                    <select id="editEmployeeStatus" name="is_active" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Update Labour</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div id="addExpenseModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="document.getElementById('addExpenseModal').style.display='none'">&times;</span>
+            <h2 class="text-xl font-semibold mb-4">Add Expense for Labour</h2>
+            <form id="addExpenseForm" class="space-y-4" enctype="multipart/form-data">
+                <div>
+                    <label for="expenseEmployeeSelect" class="block text-sm font-medium text-gray-700">Select Labour</label>
+                    <select id="expenseEmployeeSelect" name="employee_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="">Select Labour...</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="expenseAmount" class="block text-sm font-medium text-gray-700">Amount</label>
+                    <input type="number" id="expenseAmount" name="amount" required min="0.01" step="0.01" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="expenseDescription" class="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea id="expenseDescription" name="description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+                </div>
+                <div>
+                    <label for="expenseSiteName" class="block text-sm font-medium text-gray-700">Site Name</label>
+                    <input type="text" id="expenseSiteName" name="site_name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
+                    <label for="expenseDocument" class="block text-sm font-medium text-gray-700">Supporting Document (optional)</label>
+                    <input type="file" id="expenseDocument" name="document" accept=".pdf,.jpg,.jpeg,.png" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Add Expense</button>
+            </form>
+        </div>
+    </div>
+
 
     <header class="bg-white shadow-sm py-4 px-6 flex items-center justify-between">
         <div class="flex items-center space-x-4">
@@ -162,7 +226,11 @@
                     <span id="userName" class="font-medium">Supervisor</span>
                     <i class="fas fa-chevron-down text-sm"></i>
                 </button>
-                <div id="profileMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                <div id="profileMenu" class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                    <div class="px-4 py-2 border-b">
+                        <p class="text-sm font-medium" id="profileMenuUserName">User Name</p>
+                        <p class="text-xs text-gray-500" id="profileMenuUserRole">Role</p>
+                    </div>
                     <a href="#" id="logoutBtn" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
                 </div>
             </div>
@@ -298,6 +366,7 @@
                                     <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Allocated Funds</th>
                                     <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Spent Funds</th>
                                     <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Remaining Funds</th>
+                                    <th class="py-2 px-4 border-b text-left text-sm font-semibold text-gray-600">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="employeesTableBody">
@@ -493,6 +562,35 @@
             }, 3000);
         }
 
+        // Fetch and display logged-in user's name and role in profile dropdown
+        async function fetchUserProfileMenu() {
+            try {
+                const response = await fetch('/auth/me', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('userName').textContent = data.name;
+                    document.getElementById('profileMenuUserName').textContent = data.name;
+                    document.getElementById('profileMenuUserRole').textContent = data.role.charAt(0).toUpperCase() + data.role.slice(1);
+                }
+            } catch (error) {
+                // fallback: do nothing
+            }
+        }
+        fetchUserProfileMenu();
+        // Profile menu toggle logic
+        const profileMenuButton = document.getElementById('profileMenuButton');
+        const profileMenu = document.getElementById('profileMenu');
+        if (profileMenuButton && profileMenu) {
+            profileMenuButton.addEventListener('click', () => {
+                profileMenu.classList.toggle('hidden');
+            });
+            document.addEventListener('click', (event) => {
+                if (!profileMenuButton.contains(event.target) && !profileMenu.contains(event.target)) {
+                    profileMenu.classList.add('hidden');
+                }
+            });
+        }
+
         // Fetch and display logged-in user's name
         async function fetchUserName() {
             try {
@@ -625,15 +723,19 @@
                     tableBody.innerHTML = ''; // Clear previous data
                     if (data.employees.length > 0) {
                         data.employees.forEach(employee => {
+                            const statusColor = employee.is_active ? 'green' : 'red';
                             const row = tableBody.insertRow();
                             row.innerHTML = `
                                 <td class="py-2 px-4 border-b">${employee.name}</td>
                                 <td class="py-2 px-4 border-b">${employee.email}</td>
                                 <td class="py-2 px-4 border-b">${employee.phone || 'N/A'}</td>
-                                <td class="py-2 px-4 border-b">${employee.is_active ? '<span class="text-green-600">Active</span>' : '<span class="text-red-600">Inactive</span>'}</td>
+                                <td class="py-2 px-4 border-b"><span class="font-semibold text-${statusColor}-600">${employee.is_active ? 'Active' : 'Inactive'}</span></td>
                                 <td class="py-2 px-4 border-b">₹${employee.allocated_funds.toFixed(2)}</td>
                                 <td class="py-2 px-4 border-b">₹${employee.spent_funds.toFixed(2)}</td>
                                 <td class="py-2 px-4 border-b">₹${employee.remaining_funds.toFixed(2)}</td>
+                                <td class="py-2 px-4 border-b">
+                                    <button onclick="openEditEmployeeModal(${employee.id}, '${employee.name}', '${employee.email}', '${employee.phone}', ${employee.is_active})" class="text-blue-600 hover:underline mr-2">Edit</button>
+                                </td>
                             `;
                         });
                         document.getElementById('noEmployees').classList.add('hidden');
@@ -1084,30 +1186,29 @@
         }
 
         // Populate supervisor dropdown when modal opens
-        function populateSupervisorDropdown() {
+        async function populateSupervisorDropdown() {
             const supervisorSelect = document.getElementById('employeeSupervisor');
             supervisorSelect.innerHTML = '<option value="">Loading...</option>';
-            fetch('/admin/all-admins', { credentials: 'include' })
-                .then(res => res.json())
-                .then(data => {
-                    supervisorSelect.innerHTML = '<option value="">Select Supervisor...</option>';
-                    if (data.admins && data.admins.length > 0) {
-                        data.admins.forEach(admin => {
-                            const option = document.createElement('option');
-                            option.value = admin.id;
-                            option.textContent = `${admin.name} (${admin.email})`;
-                            supervisorSelect.appendChild(option);
-                        });
-                    } else {
+            try {
+                const response = await fetch('/admin/all-admins', { credentials: 'include' });
+                const data = await response.json();
+                supervisorSelect.innerHTML = '<option value="">Select Supervisor...</option>';
+                if (data.admins && data.admins.length > 0) {
+                    data.admins.forEach(admin => {
                         const option = document.createElement('option');
-                        option.textContent = 'No supervisors found';
-                        option.disabled = true;
+                        option.value = admin.id;
+                        option.textContent = `${admin.name} (${admin.email})`;
                         supervisorSelect.appendChild(option);
-                    }
-                })
-                .catch(() => {
-                    supervisorSelect.innerHTML = '<option value="">Error loading supervisors</option>';
-                });
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.textContent = 'No supervisors found';
+                    option.disabled = true;
+                    supervisorSelect.appendChild(option);
+                }
+            } catch (error) {
+                supervisorSelect.innerHTML = '<option value="">Error loading supervisors</option>';
+            }
         }
         // Show modal and populate supervisors
         const addEmployeeBtn = document.querySelector('button[onclick*="addEmployeeModal"]');
@@ -1283,6 +1384,116 @@
                 showToast('Network error downloading report', 'error');
             }
         });
+
+        // Open Edit Employee Modal
+        window.openEditEmployeeModal = function(id, name, email, phone, is_active) {
+            document.getElementById('editEmployeeId').value = id;
+            document.getElementById('editEmployeeName').value = name;
+            document.getElementById('editEmployeeEmail').value = email;
+            document.getElementById('editEmployeePhone').value = phone;
+            document.getElementById('editEmployeeStatus').value = is_active ? 'true' : 'false';
+            document.getElementById('editEmployeeModal').style.display = 'flex';
+        }
+
+        // Handle Edit Employee Form Submission
+        const editEmployeeForm = document.getElementById('editEmployeeForm');
+        if (editEmployeeForm) {
+            editEmployeeForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const employeeId = document.getElementById('editEmployeeId').value;
+                const formData = new FormData(editEmployeeForm);
+                const data = Object.fromEntries(formData.entries());
+                data.is_active = data.is_active === 'true';
+                try {
+                    const response = await fetch(`/admin/edit-employee`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            employee_id: employeeId,
+                            name: data.name,
+                            email: data.email,
+                            phone: data.phone,
+                            is_active: data.is_active
+                        }),
+                        credentials: 'include'
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showToast('Labour updated successfully!', 'success');
+                        document.getElementById('editEmployeeModal').style.display = 'none';
+                        fetchEmployees();
+                    } else {
+                        showToast(result.error || 'Failed to update labour', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error updating labour:', error);
+                    showToast('Error updating labour. Please try again.', 'error');
+                }
+            });
+        }
+
+        // Add Expense Modal logic
+        const addExpenseBtn = document.createElement('button');
+        addExpenseBtn.textContent = 'Add Expense';
+        addExpenseBtn.className = 'bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 mr-2';
+        addExpenseBtn.onclick = () => {
+            populateExpenseEmployeeSelect();
+            document.getElementById('addExpenseModal').style.display = 'flex';
+        };
+        const manageLabourHeader = document.querySelector('#employees .flex.justify-end');
+        if (manageLabourHeader) {
+            manageLabourHeader.prepend(addExpenseBtn);
+        }
+        async function populateExpenseEmployeeSelect() {
+            const select = document.getElementById('expenseEmployeeSelect');
+            select.innerHTML = '<option value="">Loading...</option>';
+            try {
+                const response = await fetch('/admin/employees', { credentials: 'include' });
+                const data = await response.json();
+                select.innerHTML = '<option value="">Select Labour...</option>';
+                if (data.employees && data.employees.length > 0) {
+                    data.employees.forEach(emp => {
+                        const option = document.createElement('option');
+                        option.value = emp.id;
+                        option.textContent = `${emp.name} (${emp.email})`;
+                        select.appendChild(option);
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.textContent = 'No Labour found';
+                    option.disabled = true;
+                    select.appendChild(option);
+                }
+            } catch (error) {
+                select.innerHTML = '<option value="">Error loading Labour</option>';
+            }
+        }
+        const addExpenseForm = document.getElementById('addExpenseForm');
+        if (addExpenseForm) {
+            addExpenseForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const formData = new FormData(addExpenseForm);
+                try {
+                    const response = await fetch('/admin/add-expense', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'include'
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showToast('Expense added successfully!', 'success');
+                        addExpenseForm.reset();
+                        document.getElementById('addExpenseModal').style.display = 'none';
+                        // Optionally refresh dashboard or expenses
+                    } else {
+                        showToast(result.error || 'Failed to add expense', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error adding expense:', error);
+                    showToast('Error adding expense. Please try again.', 'error');
+                }
+            });
+        }
 
         // Attach event listeners for desktop sidebar
         document.querySelectorAll('.tab-btn').forEach(button => {

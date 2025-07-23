@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 from decimal import Decimal
 import csv
 from io import StringIO
+from sqlalchemy.orm import aliased
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -99,7 +100,7 @@ def get_employees_managed_by_admin():
     if current_user.role != 'admin':
         return jsonify({'error': 'Unauthorized'}), 403
     
-    employees = User.query.filter_by(created_by=current_user.id, role='employee').all()
+    employees = User.query.filter_by(supervisor_id=current_user.id, role='employee').all()
     employee_list = []
     for employee in employees:
         fund = EmployeeFund.query.filter_by(employee_id=employee.id, admin_id=current_user.id).first()
@@ -192,7 +193,8 @@ def allocate_fund_to_employee():
         if not admin_budget or admin_budget.remaining < amount:
             return jsonify({'error': 'Insufficient budget'}), 400
 
-        employee = User.query.filter_by(id=employee_id, role='employee', created_by=current_user.id).first()
+        # FIX: Allow fund allocation to any employee where supervisor_id=current_user.id
+        employee = User.query.filter_by(id=employee_id, role='employee', supervisor_id=current_user.id).first()
         if not employee:
             return jsonify({'error': 'Employee not found or not managed by you'}), 404
         
@@ -235,15 +237,51 @@ def add_expense():
     if current_user.role != 'admin':
         return jsonify({'error': 'Unauthorized'}), 403
     
-    # This endpoint is typically for employees submitting, not admins adding directly.
-    # Reconfirm if an admin can 'add' an expense on behalf of an employee or if this route
-    # is repurposed for admins to approve (which is handled by other routes).
-    # Assuming this route might be for an admin to log their *own* expense if they are also an employee.
-    # If it's for employees, this route should be in employee.py.
-    # Based on the prompt "Admins to handle expenses, including approving, rejecting, and tracking employee spending",
-    # this route seems misplaced here if it's for 'adding' a new expense record.
-    # I'll keep it for now but note that its functionality might overlap or be better placed.
-    return jsonify({'message': 'This endpoint is typically for employee submission, not admin adding expenses directly.'}), 400
+    employee_id = request.form.get('employee_id')
+    amount = request.form.get('amount')
+    description = request.form.get('description')
+    site_name = request.form.get('site_name')
+    file = request.files.get('document')
+
+    if not all([employee_id, amount, site_name]):
+        return jsonify({'error': 'Missing required fields'}), 400
+    try:
+        amount = Decimal(str(amount))
+        if amount <= 0:
+            return jsonify({'error': 'Amount must be positive'}), 400
+        employee = User.query.filter_by(id=employee_id, role='employee', supervisor_id=current_user.id).first()
+        if not employee:
+            return jsonify({'error': 'Employee not found or not managed by you'}), 404
+        document_path = None
+        if file and file.filename:
+            if not allowed_file(file.filename):
+                return jsonify({'error': 'Invalid file type. Allowed: pdf, png, jpg, jpeg'}), 400
+            filename = secure_filename(file.filename)
+            upload_folder = current_app.config.get('UPLOAD_FOLDER')
+            if not upload_folder:
+                return jsonify({'error': 'Upload folder not configured'}), 500
+            base, ext = os.path.splitext(filename)
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+            unique_filename = f"{base}_{timestamp}{ext}"
+            file_save_path = os.path.join(upload_folder, unique_filename)
+            file.save(file_save_path)
+            document_path = unique_filename  # Store only the filename, not the full path
+        new_expense = Expense(
+            employee_id=employee.id,
+            admin_id=current_user.id,
+            amount=amount,
+            description=description,
+            status='pending',
+            document_path=document_path,
+            site_name=site_name
+        )
+        db.session.add(new_expense)
+        db.session.commit()
+        return jsonify({'message': 'Expense added successfully', 'expense_id': new_expense.id}), 201
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error adding expense: {e}")
+        return jsonify({'error': 'Failed to add expense'}), 500
 
 @admin_bp.route('/expenses/<int:expense_id>/details')
 @login_required
@@ -390,7 +428,7 @@ def serve_document(filename):
 
     # --- ROBUST AUTHORIZATION CHECK ---
     # Check if the document belongs to an expense managed by the current admin
-    expense = Expense.query.filter_by(document_path=os.path.join(upload_folder, safe_filename)).first()
+    expense = Expense.query.filter_by(document_path=os.path.basename(safe_filename)).first()
 
     if not expense: # If no expense record found for this document_path
         current_app.logger.warning(f"Attempt to access unlinked document: {safe_filename}")
@@ -415,20 +453,19 @@ def get_employee_transactions():
         return jsonify({'error': 'Unauthorized'}), 403
 
     try:
-        # Get all transactions where the sender or receiver is an employee managed by this admin
-        # This will include allocations from admin to employee and expenses by employee to admin
+        Sender = aliased(User)
+        Receiver = aliased(User)
         transactions = db.session.query(
             Transaction,
-            User.name.label('sender_name'),
-            User.name.label('receiver_name'),
-            Expense.document_path.label('document_path') # Get document path for expense type transactions
-        ).outerjoin(User, Transaction.sender_id == User.id)\
-        .outerjoin(Expense, Transaction.expense_id == Expense.id)\
-        .filter(
+            Sender.name.label('sender_name'),
+            Receiver.name.label('receiver_name'),
+            Expense.document_path.label('document_path')
+        ).outerjoin(Sender, Transaction.sender_id == Sender.id)\
+         .outerjoin(Receiver, Transaction.receiver_id == Receiver.id)\
+         .outerjoin(Expense, Transaction.expense_id == Expense.id)\
+         .filter(
             or_(
-                # Transactions where this admin is the sender (allocations to their employees)
                 and_(Transaction.sender_id == current_user.id, Transaction.type == 'allocation'),
-                # Transactions where an employee managed by this admin is the sender (expenses)
                 and_(Transaction.type == 'expense', Expense.admin_id == current_user.id, Expense.employee_id == Transaction.sender_id)
             )
         )\
@@ -436,19 +473,6 @@ def get_employee_transactions():
 
         transaction_list = []
         for transaction, sender_name, receiver_name, document_path in transactions:
-            # Dynamically get receiver name for allocations
-            if transaction.type == 'allocation' and transaction.receiver_id:
-                receiver_user = User.query.get(transaction.receiver_id)
-                receiver_name = receiver_user.name if receiver_user else 'N/A'
-            elif transaction.type == 'expense' and transaction.receiver_id:
-                receiver_user = User.query.get(transaction.receiver_id)
-                receiver_name = receiver_user.name if receiver_user else 'N/A'
-            elif transaction.type == 'expense' and transaction.expense_id:
-                 # For expenses, the receiver is typically the admin, or implied as the company
-                 # sender_name would be the employee
-                 pass
-
-
             transaction_list.append({
                 'id': transaction.id,
                 'timestamp': transaction.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
@@ -456,7 +480,7 @@ def get_employee_transactions():
                 'amount': float(transaction.amount),
                 'description': transaction.description,
                 'sender_name': sender_name,
-                'receiver_name': receiver_name, # This will be the admin for employee expenses
+                'receiver_name': receiver_name,
                 'expense_id': transaction.expense_id,
                 'document_link': f"/admin/documents/{os.path.basename(document_path)}" if document_path and transaction.type == 'expense' else None,
                 'site_name': transaction.site_name
@@ -506,18 +530,16 @@ def export_employee_transactions_csv():
         cw = csv.writer(si)
 
         # CSV Header
-        cw.writerow(['Serial No.', 'Date', 'Name (Labour)', 'Description', 'Amount', 'Supporting Document (Invoice/Bill) Link', 'Type', 'Site Name'])
+        cw.writerow(['Serial No.', 'Date', 'Name (Labour)', 'Description', 'Amount', 'Supporting Document (Invoice/Bill) Link', 'Type', 'Site Name', 'Document URL'])
 
         for i, (transaction, employee_name, document_path) in enumerate(transactions):
-            # For allocations, the 'employee_name' from the join is the receiver.
-            # For expenses, the 'employee_name' from the join is the sender.
-            # Ensure the correct name is used.
             display_employee_name = employee_name if employee_name else 'N/A'
-
             document_link = ""
+            document_url = ""
             if transaction.type == 'expense' and document_path:
-                document_link = f"{request.url_root.rstrip('/')}/admin/documents/{os.path.basename(document_path)}"
-
+                filename = os.path.basename(document_path)
+                document_link = f"{request.url_root.rstrip('/')}/admin/documents/{filename}"
+                document_url = document_link
             cw.writerow([
                 i + 1, # Serial No.
                 transaction.timestamp.strftime('%Y-%m-%d %H:%M:%S'), # Date
@@ -526,7 +548,8 @@ def export_employee_transactions_csv():
                 str(transaction.amount),
                 document_link,
                 transaction.type.capitalize(), # Type (Allocated/Expense)
-                transaction.site_name
+                transaction.site_name,
+                document_url
             ])
 
         output = make_response(si.getvalue())

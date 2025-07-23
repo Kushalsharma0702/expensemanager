@@ -109,21 +109,23 @@ def submit_expense():
             return jsonify({'error': 'Invalid file type. Allowed: pdf, png, jpg, jpeg'}), 400
 
     title = request.form.get('title')
-    description = request.form.get('description')
+    category = request.form.get('category')
+    date_str = request.form.get('date')
+    location = request.form.get('location')
+    purpose = request.form.get('purpose')
     amount = request.form.get('amount')
-    site_name = request.form.get('site_name') # New field
+    site_name = request.form.get('site_name') # Optional
 
-    if not all([title, amount, site_name]):
-        return jsonify({'error': 'Missing required fields (title, amount, site_name)'}), 400
-    
+    if not all([title, category, date_str, location, purpose, amount]):
+        return jsonify({'error': 'Missing required fields (title, category, date, location, purpose, amount)'}), 400
     try:
         amount = Decimal(str(amount))
         if amount <= 0:
             return jsonify({'error': 'Amount must be positive'}), 400
-
-        # Check if the expense amount exceeds remaining balance (optional, admin approves anyway)
-        # if employee_fund.remaining_balance < amount:
-        #     return jsonify({'error': 'Expense amount exceeds your remaining balance.'}), 400
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except Exception:
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
 
         document_path = None
         if file:
@@ -131,21 +133,21 @@ def submit_expense():
             upload_folder = current_app.config.get('UPLOAD_FOLDER')
             if not upload_folder:
                 return jsonify({'error': 'Upload folder not configured'}), 500
-            
-            # Ensure unique filename to prevent overwrites
             base, ext = os.path.splitext(filename)
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
             unique_filename = f"{base}_{timestamp}{ext}"
-            
             file_save_path = os.path.join(upload_folder, unique_filename)
             file.save(file_save_path)
-            document_path = file_save_path # Store full path
+            document_path = unique_filename # Store only the filename
 
         new_expense = Expense(
             employee_id=current_user.id,
             admin_id=admin_id_for_expense,
             title=title,
-            description=description,
+            category=category,
+            date=date,
+            location=location,
+            purpose=purpose,
             amount=amount,
             status='pending',
             document_path=document_path,
@@ -153,7 +155,6 @@ def submit_expense():
         )
         db.session.add(new_expense)
         db.session.commit()
-        
         return jsonify({'message': 'Expense submitted successfully', 'expense_id': new_expense.id}), 201
     except Exception as e:
         db.session.rollback()

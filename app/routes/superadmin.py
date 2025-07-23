@@ -137,13 +137,19 @@ def get_employees():
     employees = User.query.filter_by(role='employee').all()
     employee_list = []
     for employee in employees:
+        supervisor = User.query.get(employee.supervisor_id) if employee.supervisor_id else None
         employee_list.append({
             'id': employee.id,
             'name': employee.name,
             'email': employee.email,
             'phone': employee.phone,
             'is_active': employee.is_active,
-            'created_at': employee.created_at.strftime('%Y-%m-%d %H:%M:%S') if employee.created_at else None
+            'created_at': employee.created_at.strftime('%Y-%m-%d %H:%M:%S') if employee.created_at else None,
+            'supervisor': {
+                'id': supervisor.id if supervisor else None,
+                'name': supervisor.name if supervisor else None,
+                'email': supervisor.email if supervisor else None
+            }
         })
     return jsonify({'employees': employee_list})
 
@@ -244,7 +250,12 @@ def update_user(user_id):
             user.password = generate_password_hash(data['password'])
         if 'is_active' in data:
             user.is_active = bool(data['is_active'])
-
+        # Allow updating supervisor_id for employees
+        if user.role == 'employee' and 'supervisor_id' in data:
+            supervisor = User.query.filter_by(id=data['supervisor_id'], role='admin').first()
+            if not supervisor:
+                return jsonify({'error': 'Invalid supervisor specified'}), 400
+            user.supervisor_id = data['supervisor_id']
         user.updated_at = datetime.utcnow()
         db.session.commit()
         return jsonify({'message': 'User updated successfully', 'user': {'id': user.id, 'name': user.name, 'email': user.email, 'role': user.role}}), 200
