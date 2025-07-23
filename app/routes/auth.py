@@ -87,4 +87,3 @@ def check_session():
         })
     else:
         return jsonify({'authenticated': False}), 401
-

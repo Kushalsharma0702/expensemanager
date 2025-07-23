@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template, current_app
+from flask import Blueprint, request, jsonify, render_template, current_app, make_response
 from flask_login import login_required, current_user
 from app.models import User, Budget, Expense, Transaction, EmployeeFund
 from extensions import db
@@ -158,6 +158,7 @@ def add_user():
     phone = data.get('phone')
     password = data.get('password')
     role = data.get('role')
+    supervisor_id = data.get('supervisor_id') # Get supervisor_id from data
 
     if not all([name, email, password, role]):
         return jsonify({'error': 'Missing required fields'}), 400
@@ -167,6 +168,15 @@ def add_user():
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'User with this email already exists'}), 409
     
+    # Check supervisor for employees
+    if role == 'employee':
+        if not supervisor_id:
+            return jsonify({'error': 'Supervisor ID is required for employees'}), 400
+        
+        supervisor = User.query.filter_by(id=supervisor_id, role='admin').first()
+        if not supervisor:
+            return jsonify({'error': 'Invalid supervisor specified'}), 400
+
     try:
         new_user = User(
             name=name,
@@ -174,8 +184,10 @@ def add_user():
             phone=phone,
             password=generate_password_hash(password),
             role=role,
-            created_by=current_user.id, # Set created_by for new users
-            is_active=True
+            created_by=current_user.id,
+            is_active=True,
+            # Assign supervisor_id if the user is an employee
+            supervisor_id=supervisor_id if role == 'employee' else None
         )
         db.session.add(new_user)
         db.session.commit()
@@ -186,12 +198,24 @@ def add_user():
             db.session.add(new_budget)
             db.session.commit()
         
+        # If an employee is added, create an empty fund for them
+        if role == 'employee':
+            new_fund = EmployeeFund(
+                employee_id=new_user.id,
+                admin_id=supervisor_id,
+                amount_allocated=Decimal('0.00'),
+                amount_spent=Decimal('0.00'),
+                remaining_balance=Decimal('0.00')
+            )
+            db.session.add(new_fund)
+            db.session.commit() # Commit again after adding the fund
+
         return jsonify({'message': f'{role.capitalize()} added successfully', 'user': {'id': new_user.id, 'name': new_user.name, 'email': new_user.email, 'role': new_user.role}}), 201
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error adding user: {e}")
         return jsonify({'error': 'Failed to add user'}), 500
-
+      
 @superadmin_bp.route('/update-user/<int:user_id>', methods=['PUT'])
 @login_required
 def update_user(user_id):

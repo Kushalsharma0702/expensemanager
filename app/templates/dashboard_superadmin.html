@@ -74,6 +74,12 @@
                         <option value="employee">Labour</option>
                     </select>
                 </div>
+                <div id="supervisorField" style="display:none;">
+                    <label for="supervisorSelect" class="block text-sm font-medium text-gray-700">Allocate Supervisor</label>
+                    <select id="supervisorSelect" name="supervisor_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="">Select Supervisor...</option>
+                    </select>
+                </div>
                 <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Add User</button>
             </form>
         </div>
@@ -156,9 +162,16 @@
                     <span id="userName" class="font-medium">SuperAdmin</span>
                     <i class="fas fa-chevron-down text-sm"></i>
                 </button>
-                <div id="profileMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+                <!-- <div id="profileMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
                     <a href="#" id="logoutBtn" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
-                </div>
+                </div> -->
+                <div id="profileMenu" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-20 hidden">
+    <div class="px-4 py-2 border-b">
+        <p class="text-sm font-medium" id="profileUserName"></p>
+        <p class="text-xs text-gray-500" id="profileUserRole"></p>
+    </div>
+    <a href="#" id="logoutBtn" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</a>
+</div>
             </div>
         </div>
     </header>
@@ -503,6 +516,8 @@
                 if (response.ok) {
                     const data = await response.json();
                     document.getElementById('userName').textContent = data.name;
+                    document.getElementById('profileUserName').textContent = data.name;
+                    document.getElementById('profileUserRole').textContent = 'Labour';
                 } else {
                     console.error('Failed to fetch user data:', await response.json());
                     showToast('Failed to load user name.', 'error');
@@ -874,11 +889,67 @@
         // Add User Form Handler
         const addUserForm = document.getElementById('addUserForm');
         if (addUserForm) {
+            // Show/hide supervisor field based on role
+            const userRoleSelect = document.getElementById('userRole');
+            const supervisorField = document.getElementById('supervisorField');
+            const supervisorSelect = document.getElementById('supervisorSelect');
+
+            userRoleSelect.addEventListener('change', function() {
+                if (this.value === 'employee') {
+                    supervisorField.style.display = 'block';
+                    populateSupervisors(); // Populate supervisors when role is employee
+                } else {
+                    supervisorField.style.display = 'none';
+                    supervisorSelect.innerHTML = '<option value="">Select Supervisor...</option>';
+                }
+            });
+
+            // Populate supervisors dropdown
+            function populateSupervisors() {
+                supervisorSelect.innerHTML = '<option value="">Loading...</option>';
+                fetch('/superadmin/admins', { credentials: 'include' })
+                    .then(res => res.json())
+                    .then(data => {
+                        supervisorSelect.innerHTML = '<option value="">Select Supervisor...</option>';
+                        if (data.admins && data.admins.length > 0) {
+                            data.admins.forEach(admin => {
+                                const option = document.createElement('option');
+                                option.value = admin.id;
+                                option.textContent = `${admin.name} (${admin.email})`;
+                                supervisorSelect.appendChild(option);
+                            });
+                        } else {
+                            const option = document.createElement('option');
+                            option.textContent = 'No supervisors found';
+                            option.disabled = true;
+                            supervisorSelect.appendChild(option);
+                        }
+                    })
+                    .catch(() => {
+                        supervisorSelect.innerHTML = '<option value="">Error loading supervisors</option>';
+                    });
+            }
+
             addUserForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 
                 const formData = new FormData(addUserForm);
                 const data = Object.fromEntries(formData.entries());
+
+                // Remove empty password if not changed
+                if (!data.password) {
+                    delete data.password;
+                }
+
+                // If role is employee, ensure supervisor_id is included
+                if (data.role === 'employee') {
+                    if (!data.supervisor_id) {
+                        showToast('Please select a supervisor for the employee.', 'error');
+                        return;
+                    }
+                } else {
+                    delete data.supervisor_id;
+                }
 
                 try {
                     const response = await fetch('/superadmin/add-user', {

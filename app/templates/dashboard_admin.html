@@ -96,6 +96,12 @@
                     <label for="employeePassword" class="block text-sm font-medium text-gray-700">Password</label>
                     <input type="password" id="employeePassword" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                 </div>
+                <div>
+                    <label for="employeeSupervisor" class="block text-sm font-medium text-gray-700">Supervisor</label>
+                    <select id="employeeSupervisor" name="supervisor_id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                        <option value="">Select Supervisor...</option>
+                    </select>
+                </div>
                 <button type="submit" class="w-full bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700">Add Labour</button>
             </form>
         </div>
@@ -1077,229 +1083,227 @@
             }
         }
 
+        // Populate supervisor dropdown when modal opens
+        function populateSupervisorDropdown() {
+            const supervisorSelect = document.getElementById('employeeSupervisor');
+            supervisorSelect.innerHTML = '<option value="">Loading...</option>';
+            fetch('/admin/all-admins', { credentials: 'include' })
+                .then(res => res.json())
+                .then(data => {
+                    supervisorSelect.innerHTML = '<option value="">Select Supervisor...</option>';
+                    if (data.admins && data.admins.length > 0) {
+                        data.admins.forEach(admin => {
+                            const option = document.createElement('option');
+                            option.value = admin.id;
+                            option.textContent = `${admin.name} (${admin.email})`;
+                            supervisorSelect.appendChild(option);
+                        });
+                    } else {
+                        const option = document.createElement('option');
+                        option.textContent = 'No supervisors found';
+                        option.disabled = true;
+                        supervisorSelect.appendChild(option);
+                    }
+                })
+                .catch(() => {
+                    supervisorSelect.innerHTML = '<option value="">Error loading supervisors</option>';
+                });
+        }
+        // Show modal and populate supervisors
+        const addEmployeeBtn = document.querySelector('button[onclick*="addEmployeeModal"]');
+        if (addEmployeeBtn) {
+            addEmployeeBtn.addEventListener('click', () => {
+                populateSupervisorDropdown();
+                document.getElementById('addEmployeeModal').style.display = 'flex';
+            });
+        }
 
-        // Main DOMContentLoaded event - runs once
-        document.addEventListener('DOMContentLoaded', async function() {
-            // Session check - runs first
-            const res = await fetch('/auth/check-session', { credentials: 'include' });
-            if (res.status !== 200) {
-                window.location.href = '/';
+        // Update form submission to include supervisor_id
+        const addEmployeeForm = document.getElementById('addEmployeeForm');
+        if (addEmployeeForm) {
+            addEmployeeForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const formData = new FormData(addEmployeeForm);
+                const data = Object.fromEntries(formData.entries());
+                try {
+                    const response = await fetch('/admin/add-employee', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                        credentials: 'include'
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showToast(result.message, 'success');
+                        addEmployeeForm.reset();
+                        document.getElementById('addEmployeeModal').style.display = 'none';
+                        fetchEmployees(); // Refresh employee list
+                        fetchDashboardData(); // Refresh dashboard counts
+                    } else {
+                        showToast(result.error || 'Failed to add Labour', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error adding Labour:', error);
+                    showToast('Error adding Labour. Please try again.', 'error');
+                }
+            });
+        }
+
+        // ALLOCATE FUND FORM HANDLER
+        const allocateFundForm = document.getElementById('allocateFundForm');
+        if (allocateFundForm) {
+            allocateFundForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(allocateFundForm);
+                const data = Object.fromEntries(formData.entries());
+
+                data.amount = parseFloat(data.amount); // Convert amount to number
+
+                try {
+                    const response = await fetch('/admin/allocate-fund', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data),
+                        credentials: 'include'
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        showToast(result.message, 'success');
+                        allocateFundForm.reset();
+                        document.getElementById('allocateFundModal').style.display = 'none';
+                        fetchFundAllocationData(); // Refresh fund balances
+                        fetchDashboardData(); // Refresh dashboard budget
+                    } else {
+                        showToast(result.error || 'Failed to allocate fund', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error allocating fund:', error);
+                    showToast('Error allocating fund. Please try again.', 'error');
+                }
+            });
+        }
+
+        // APPROVE EXPENSE BUTTON
+        document.getElementById('approveExpenseBtn').addEventListener('click', async () => {
+            if (!currentExpenseId) {
+                showToast('No expense selected to approve.', 'error');
                 return;
             }
 
-            // Initialize dashboard components after successful session check
-            fetchUserName(); // Fetch and display logged-in user's name
-            switchTab('dashboard'); // Initialize with Dashboard tab active
-
-            // LOGOUT FUNCTIONALITY (Desktop)
-            const logoutBtn = document.getElementById('logoutBtn');
-            if (logoutBtn) {
-                logoutBtn.addEventListener('click', logout);
+            if (!confirm('Are you sure you want to approve this expense?')) {
+                return;
             }
 
-            // Profile Menu Toggle (Desktop)
-            const profileMenuButton = document.getElementById('profileMenuButton');
-            const profileMenu = document.getElementById('profileMenu');
-            if (profileMenuButton && profileMenu) {
-                profileMenuButton.addEventListener('click', () => {
-                    profileMenu.classList.toggle('hidden');
+            try {
+                const response = await fetch(`/admin/expenses/${currentExpenseId}/approve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
                 });
-                document.addEventListener('click', (event) => {
-                    if (!profileMenuButton.contains(event.target) && !profileMenu.contains(event.target)) {
-                        profileMenu.classList.add('hidden');
-                    }
-                });
+                const data = await response.json();
+                if (response.ok) {
+                    showToast(data.message, 'success');
+                    document.getElementById('expenseModal').style.display = 'none';
+                    fetchDashboardData(); // Refresh dashboard counts and pending expenses list
+                    fetchPendingExpensesFullList(); // Refresh full list as well
+                    fetchFundAllocationData(); // Update employee fund balances
+                    fetchEmployeeTransactions(); // Update expense tracking
+                } else {
+                    showToast(data.error || 'Failed to approve expense', 'error');
+                }
+            } catch (error) {
+                console.error('Error approving expense:', error);
+                showToast('Error approving expense', 'error');
             }
-
-            // ADD EMPLOYEE FORM HANDLER
-            const addEmployeeForm = document.getElementById('addEmployeeForm');
-            if (addEmployeeForm) {
-                addEmployeeForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    
-                    const formData = new FormData(addEmployeeForm);
-                    const data = Object.fromEntries(formData.entries());
-
-                    try {
-                        const response = await fetch('/admin/add-employee', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data),
-                            credentials: 'include'
-                        });
-                        const result = await response.json();
-                        if (response.ok) {
-                            showToast(result.message, 'success');
-                            addEmployeeForm.reset();
-                            document.getElementById('addEmployeeModal').style.display = 'none';
-                            fetchEmployees(); // Refresh employee list
-                            fetchDashboardData(); // Refresh dashboard counts
-                        } else {
-                            showToast(result.error || 'Failed to add Labour', 'error');
-                        }
-                    } catch (error) {
-                        console.error('Error adding Labour:', error);
-                        showToast('Error adding Labour. Please try again.', 'error');
-                    }
-                });
-            }
-
-            // ALLOCATE FUND FORM HANDLER
-            const allocateFundForm = document.getElementById('allocateFundForm');
-            if (allocateFundForm) {
-                allocateFundForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    
-                    const formData = new FormData(allocateFundForm);
-                    const data = Object.fromEntries(formData.entries());
-
-                    data.amount = parseFloat(data.amount); // Convert amount to number
-
-                    try {
-                        const response = await fetch('/admin/allocate-fund', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data),
-                            credentials: 'include'
-                        });
-                        const result = await response.json();
-                        if (response.ok) {
-                            showToast(result.message, 'success');
-                            allocateFundForm.reset();
-                            document.getElementById('allocateFundModal').style.display = 'none';
-                            fetchFundAllocationData(); // Refresh fund balances
-                            fetchDashboardData(); // Refresh dashboard budget
-                        } else {
-                            showToast(result.error || 'Failed to allocate fund', 'error');
-                        }
-                    } catch (error) {
-                        console.error('Error allocating fund:', error);
-                        showToast('Error allocating fund. Please try again.', 'error');
-                    }
-                });
-            }
-
-            // APPROVE EXPENSE BUTTON
-            document.getElementById('approveExpenseBtn').addEventListener('click', async () => {
-                if (!currentExpenseId) {
-                    showToast('No expense selected to approve.', 'error');
-                    return;
-                }
-
-                if (!confirm('Are you sure you want to approve this expense?')) {
-                    return;
-                }
-
-                try {
-                    const response = await fetch(`/admin/expenses/${currentExpenseId}/approve`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include'
-                    });
-                    const data = await response.json();
-                    if (response.ok) {
-                        showToast(data.message, 'success');
-                        document.getElementById('expenseModal').style.display = 'none';
-                        fetchDashboardData(); // Refresh dashboard counts and pending expenses list
-                        fetchPendingExpensesFullList(); // Refresh full list as well
-                        fetchFundAllocationData(); // Update employee fund balances
-                        fetchEmployeeTransactions(); // Update expense tracking
-                    } else {
-                        showToast(data.error || 'Failed to approve expense', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error approving expense:', error);
-                    showToast('Error approving expense', 'error');
-                }
-            });
-
-            // REJECT EXPENSE BUTTON
-            document.getElementById('rejectExpenseBtn').addEventListener('click', async () => {
-                if (!currentExpenseId) {
-                    showToast('No expense selected to reject.', 'error');
-                    return;
-                }
-
-                if (!confirm('Are you sure you want to reject this expense? The attached document will be deleted.')) {
-                    return;
-                }
-
-                try {
-                    const response = await fetch(`/admin/expenses/${currentExpenseId}/reject`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include'
-                    });
-                    const data = await response.json();
-                    if (response.ok) {
-                        showToast(data.message, 'success');
-                        document.getElementById('expenseModal').style.display = 'none';
-                        fetchDashboardData(); // Refresh dashboard counts and pending expenses list
-                        fetchPendingExpensesFullList(); // Refresh full list as well
-                    } else {
-                        showToast(data.error || 'Failed to reject expense', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error rejecting expense:', error);
-                    showToast('Error rejecting expense', 'error');
-                }
-            });
-
-            // DOWNLOAD EMPLOYEE REPORT CSV
-            document.getElementById('downloadEmployeeReportBtn').addEventListener('click', async () => {
-                const startDate = document.getElementById('reportStartDate').value;
-                const endDate = document.getElementById('reportEndDate').value;
-
-                if (!startDate || !endDate) {
-                    showToast('Please select both start and end dates for the report.', 'error');
-                    return;
-                }
-
-                const url = `/admin/export-employee-transactions-csv?start_date=${startDate}&end_date=${endDate}`;
-                try {
-                    const response = await fetch(url, { credentials: 'include' });
-                    if (response.ok) {
-                        const blob = await response.blob();
-                        const downloadUrl = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = downloadUrl;
-                        a.download = `employee_transactions_${startDate}_to_${endDate}.csv`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        window.URL.revokeObjectURL(downloadUrl);
-                        showToast('Report downloaded successfully!', 'success');
-                    } else {
-                        const errorData = await response.json();
-                        showToast(errorData.error || 'Failed to download report', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error downloading report:', error);
-                    showToast('Network error downloading report', 'error');
-                }
-            });
-
-            // Attach event listeners for desktop sidebar
-            document.querySelectorAll('.tab-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    switchTab(e.currentTarget.dataset.tab);
-                });
-            });
-
-            // Attach event listeners for mobile bottom nav
-            document.querySelectorAll('.bottom-nav-item').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (e.currentTarget.dataset.tab) { // Check if it's a tab item
-                        switchTab(e.currentTarget.dataset.tab);
-                    } else if (e.currentTarget.id === 'mobileLogoutBtn') { // Handle logout button
-                        logout();
-                    }
-                });
-            });
-             document.getElementById('mobileLogoutBtn').addEventListener('click', logout);
         });
+
+        // REJECT EXPENSE BUTTON
+        document.getElementById('rejectExpenseBtn').addEventListener('click', async () => {
+            if (!currentExpenseId) {
+                showToast('No expense selected to reject.', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to reject this expense? The attached document will be deleted.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/admin/expenses/${currentExpenseId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    showToast(data.message, 'success');
+                    document.getElementById('expenseModal').style.display = 'none';
+                    fetchDashboardData(); // Refresh dashboard counts and pending expenses list
+                    fetchPendingExpensesFullList(); // Refresh full list as well
+                } else {
+                    showToast(data.error || 'Failed to reject expense', 'error');
+                }
+            } catch (error) {
+                console.error('Error rejecting expense:', error);
+                showToast('Error rejecting expense', 'error');
+            }
+        });
+
+        // DOWNLOAD EMPLOYEE REPORT CSV
+        document.getElementById('downloadEmployeeReportBtn').addEventListener('click', async () => {
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
+
+            if (!startDate || !endDate) {
+                showToast('Please select both start and end dates for the report.', 'error');
+                return;
+            }
+
+            const url = `/admin/export-employee-transactions-csv?start_date=${startDate}&end_date=${endDate}`;
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const downloadUrl = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = `employee_transactions_${startDate}_to_${endDate}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(downloadUrl);
+                    showToast('Report downloaded successfully!', 'success');
+                } else {
+                    const errorData = await response.json();
+                    showToast(errorData.error || 'Failed to download report', 'error');
+                }
+            } catch (error) {
+                console.error('Error downloading report:', error);
+                showToast('Network error downloading report', 'error');
+            }
+        });
+
+        // Attach event listeners for desktop sidebar
+        document.querySelectorAll('.tab-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                switchTab(e.currentTarget.dataset.tab);
+            });
+        });
+
+        // Attach event listeners for mobile bottom nav
+        document.querySelectorAll('.bottom-nav-item').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (e.currentTarget.dataset.tab) { // Check if it's a tab item
+                    switchTab(e.currentTarget.dataset.tab);
+                } else if (e.currentTarget.id === 'mobileLogoutBtn') { // Handle logout button
+                    logout();
+                }
+            });
+        });
+         document.getElementById('mobileLogoutBtn').addEventListener('click', logout);
     </script>
 </body>
 </html>

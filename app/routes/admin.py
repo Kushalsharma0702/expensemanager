@@ -126,6 +126,7 @@ def add_employee():
     email = data.get('email')
     phone = data.get('phone')
     password = data.get('password')
+    supervisor_id = data.get('supervisor_id')
 
     if not all([name, email, password]):
         return jsonify({'error': 'Missing required fields'}), 400
@@ -133,6 +134,14 @@ def add_employee():
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'Employee with this email already exists'}), 409
     
+    # Validate supervisor_id if provided, else default to current admin
+    if supervisor_id:
+        supervisor = User.query.filter_by(id=supervisor_id, role='admin', is_active=True).first()
+        if not supervisor:
+            return jsonify({'error': 'Invalid supervisor selected'}), 400
+    else:
+        supervisor_id = current_user.id
+
     try:
         new_employee = User(
             name=name,
@@ -141,13 +150,14 @@ def add_employee():
             password=generate_password_hash(password),
             role='employee',
             created_by=current_user.id, # Set created_by for new employees
+            supervisor_id=supervisor_id,
             is_active=True
         )
         db.session.add(new_employee)
         db.session.commit()
 
         # Create an empty employee fund entry for the new employee
-        new_fund = EmployeeFund(employee_id=new_employee.id, admin_id=current_user.id, amount_allocated=Decimal('0.00'), amount_spent=Decimal('0.00'), remaining_balance=Decimal('0.00'))
+        new_fund = EmployeeFund(employee_id=new_employee.id, admin_id=supervisor_id, amount_allocated=Decimal('0.00'), amount_spent=Decimal('0.00'), remaining_balance=Decimal('0.00'))
         db.session.add(new_fund)
         db.session.commit()
         
@@ -527,3 +537,18 @@ def export_employee_transactions_csv():
     except Exception as e:
         current_app.logger.error(f"Error exporting employee transactions CSV: {e}")
         return jsonify({'error': 'Failed to generate CSV report'}), 500
+
+@admin_bp.route('/all-admins')
+@login_required
+def get_all_admins():
+    if current_user.role != 'admin':
+        return jsonify({'error': 'Unauthorized'}), 403
+    admins = User.query.filter_by(role='admin', is_active=True).all()
+    admin_list = []
+    for admin in admins:
+        admin_list.append({
+            'id': admin.id,
+            'name': admin.name,
+            'email': admin.email
+        })
+    return jsonify({'admins': admin_list})
