@@ -191,16 +191,20 @@
                     </select>
                 </div>
                 <div>
+                    <label for="expenseTitle" class="block text-sm font-medium text-gray-700">Title</label>
+                    <input type="text" id="expenseTitle" name="title" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                </div>
+                <div>
                     <label for="expenseAmount" class="block text-sm font-medium text-gray-700">Amount</label>
                     <input type="number" id="expenseAmount" name="amount" required min="0.01" step="0.01" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                 </div>
                 <div>
-                    <label for="expenseDescription" class="block text-sm font-medium text-gray-700">Description</label>
-                    <textarea id="expenseDescription" name="description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+                    <label for="expenseSiteName" class="block text-sm font-medium text-gray-700">Site Name</label>
+                    <input type="text" id="expenseSiteName" name="site_name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                 </div>
                 <div>
-                    <label for="expenseSiteName" class="block text-sm font-medium text-gray-700">Site Name</label>
-                    <input type="text" id="expenseSiteName" name="site_name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                    <label for="expenseDescription" class="block text-sm font-medium text-gray-700">Description</label>
+                    <textarea id="expenseDescription" name="description" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
                 </div>
                 <div>
                     <label for="expenseDocument" class="block text-sm font-medium text-gray-700">Supporting Document (optional)</label>
@@ -211,6 +215,15 @@
         </div>
     </div>
 
+    <!-- Document Preview Modal -->
+    <div id="documentPreviewModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close-button" onclick="document.getElementById('documentPreviewModal').style.display='none'">&times;</span>
+            <h2 class="text-xl font-semibold mb-4">Document Preview</h2>
+            <div id="documentPreviewContent" class="mb-4"></div>
+            <a id="documentDownloadLink" href="#" target="_blank" class="text-blue-600 hover:underline">Open in New Tab</a>
+        </div>
+    </div>
 
     <header class="bg-white shadow-sm py-4 px-6 flex items-center justify-between">
         <div class="flex items-center space-x-4">
@@ -855,7 +868,7 @@
                         data.transactions.forEach(transaction => {
                             const row = tableBody.insertRow();
                             const documentLinkHtml = transaction.document_link 
-                                ? `<a href="${transaction.document_link}" target="_blank" class="text-blue-600 hover:underline">View Document</a>`
+                                ? `<button onclick="openDocumentPreview('${transaction.document_link}')" class="text-blue-600 hover:underline">View Document</button>`
                                 : 'N/A';
                             
                             // Determine display name based on transaction type
@@ -1515,6 +1528,24 @@
             });
         });
          document.getElementById('mobileLogoutBtn').addEventListener('click', logout);
+
+        // Function to open document in a modal popup
+        function openDocumentPreview(documentUrl) {
+            const contentDiv = document.getElementById('documentPreviewContent');
+            const downloadLink = document.getElementById('documentDownloadLink');
+            contentDiv.innerHTML = '';
+            downloadLink.href = documentUrl;
+            // Determine file type
+            const fileExtension = documentUrl.split('.').pop().toLowerCase();
+            if (["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(fileExtension)) {
+                contentDiv.innerHTML = `<img src="${documentUrl}" alt="Document Image" class="max-w-full h-auto rounded-md shadow-md">`;
+            } else if (fileExtension === "pdf") {
+                contentDiv.innerHTML = `<iframe src="${documentUrl}" class="w-full h-96 border rounded-md"></iframe>`;
+            } else {
+                contentDiv.innerHTML = `<p class="text-gray-600">No preview available for this file type (.${fileExtension}).</p>`;
+            }
+            document.getElementById('documentPreviewModal').style.display = 'flex';
+        }
     </script>
 </body>
 </html>

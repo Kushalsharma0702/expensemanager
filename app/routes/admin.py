@@ -238,13 +238,14 @@ def add_expense():
         return jsonify({'error': 'Unauthorized'}), 403
     
     employee_id = request.form.get('employee_id')
+    title = request.form.get('title')
     amount = request.form.get('amount')
-    description = request.form.get('description')
     site_name = request.form.get('site_name')
+    description = request.form.get('description')
     file = request.files.get('document')
 
-    if not all([employee_id, amount, site_name]):
-        return jsonify({'error': 'Missing required fields'}), 400
+    if not all([employee_id, title, amount]):
+        return jsonify({'error': 'Missing required fields (employee_id, title, amount)'}), 400
     try:
         amount = Decimal(str(amount))
         if amount <= 0:
@@ -269,11 +270,12 @@ def add_expense():
         new_expense = Expense(
             employee_id=employee.id,
             admin_id=current_user.id,
+            title=title,
             amount=amount,
+            site_name=site_name,
             description=description,
-            status='pending',
             document_path=document_path,
-            site_name=site_name
+            status='pending'
         )
         db.session.add(new_expense)
         db.session.commit()
@@ -311,9 +313,8 @@ def get_expense_details(expense_id):
             'status': expense.status,
             'document_path': expense.document_path,
             'site_name': expense.site_name,
-            'created_at': expense.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'updated_at': expense.updated_at.strftime('%Y-%m-%d %H:%M:%S') if expense.updated_at else None,
-            'approved_at': expense.approved_at.strftime('%Y-%m-%d %H:%M:%S') if expense.approved_at else None
+            'created_at': expense.created_at.strftime('%Y-%m-%d %H:%M:%S') if expense.created_at else None,
+            'updated_at': expense.updated_at.strftime('%Y-%m-%d %H:%M:%S') if expense.updated_at else None
         })
     except Exception as e:
         current_app.logger.error(f"Error fetching expense details: {e}")
@@ -344,10 +345,9 @@ def approve_expense(expense_id):
         
         # Update expense status
         expense.status = 'approved'
-        expense.approved_at = datetime.utcnow()
         expense.updated_at = datetime.utcnow() # Update review timestamp
 
-        # Update employee's allocated fund
+        # Deduct from employee's allocated fund only on approval
         employee_fund.amount_spent += expense.amount
         employee_fund.remaining_balance -= expense.amount
         employee_fund.updated_at = datetime.utcnow()
@@ -426,25 +426,11 @@ def serve_document(filename):
     if not os.path.exists(file_path):
         return jsonify({'error': 'Document not found'}), 404
 
-    # --- ROBUST AUTHORIZATION CHECK ---
-    # Check if the document belongs to an expense managed by the current admin
-    expense = Expense.query.filter_by(document_path=os.path.basename(safe_filename)).first()
-
-    if not expense: # If no expense record found for this document_path
-        current_app.logger.warning(f"Attempt to access unlinked document: {safe_filename}")
-        return jsonify({'error': 'Document access denied (not linked to an expense)'}), 403
-
-    # Allow access if current_user is superadmin, or is the admin managing this expense,
-    # or is the employee who submitted this expense.
-    if current_user.role == 'superadmin' or \
-       expense.admin_id == current_user.id or \
-       expense.employee_id == current_user.id:
-        mimetype = mimetypes.guess_type(file_path)[0]
-        if not mimetype:
-            mimetype = 'application/octet-stream' # Default if type cannot be guessed
-        return send_from_directory(upload_folder, safe_filename, mimetype=mimetype)
-    else:
-        return jsonify({'error': 'Unauthorized to view this document'}), 403
+    # Make all documents public to any logged-in user
+    mimetype = mimetypes.guess_type(file_path)[0]
+    if not mimetype:
+        mimetype = 'application/octet-stream' # Default if type cannot be guessed
+    return send_from_directory(upload_folder, safe_filename, mimetype=mimetype)
 
 @admin_bp.route('/employee-transactions')
 @login_required

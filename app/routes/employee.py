@@ -109,24 +109,16 @@ def submit_expense():
             return jsonify({'error': 'Invalid file type. Allowed: pdf, png, jpg, jpeg'}), 400
 
     title = request.form.get('title')
-    category = request.form.get('category')
-    date_str = request.form.get('date')
-    location = request.form.get('location')
-    purpose = request.form.get('purpose')
     amount = request.form.get('amount')
-    site_name = request.form.get('site_name') # Optional
+    site_name = request.form.get('site_name')
+    description = request.form.get('description')
 
-    if not all([title, category, date_str, location, purpose, amount]):
-        return jsonify({'error': 'Missing required fields (title, category, date, location, purpose, amount)'}), 400
+    if not all([title, amount]):
+        return jsonify({'error': 'Missing required fields (title, amount)'}), 400
     try:
         amount = Decimal(str(amount))
         if amount <= 0:
             return jsonify({'error': 'Amount must be positive'}), 400
-        try:
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        except Exception:
-            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD.'}), 400
-
         document_path = None
         if file:
             filename = secure_filename(file.filename)
@@ -139,19 +131,15 @@ def submit_expense():
             file_save_path = os.path.join(upload_folder, unique_filename)
             file.save(file_save_path)
             document_path = unique_filename # Store only the filename
-
         new_expense = Expense(
             employee_id=current_user.id,
             admin_id=admin_id_for_expense,
             title=title,
-            category=category,
-            date=date,
-            location=location,
-            purpose=purpose,
             amount=amount,
-            status='pending',
+            site_name=site_name,
+            description=description,
             document_path=document_path,
-            site_name=site_name
+            status='pending'
         )
         db.session.add(new_expense)
         db.session.commit()
